@@ -12,14 +12,21 @@ export interface Pane {
   halfWidth: number;
   halfHeight: number;
   radius: number;
-  bend: number;       // how far the rim pulls the backdrop, in px
   frost: number;      // 0 clear, 1 fully frosted
-  rim: number;        // width of the curved rim, in px
+  chroma: number;     // colour split through the glass, e.g. 0.008
+  pull: number;       // how far the edge bulges toward the pointer, px
   tint: [number, number, number, number]; // rgb 0..1 and strength
-  glow: number;       // press highlight 0..1
+  depth: number;      // half thickness of the slab, px
+  rounding: number;   // radius of its rounded edge, px
+  dome: number;       // how much the face crowns, px
+  ior: number;        // index of refraction
+  lens: [number, number, number, number]; // raised disc: x, y from centre, radius, amount
+  glow: number;       // how much sound lights it, 0..1
   shadow: number;     // 0..1
-  chroma: number;     // colour split at the rim, e.g. 0.06
+  press: number;      // press highlight 0..1
 }
+
+export interface Sound { bands: ArrayLike<number>; level: number }
 
 export interface GlassRenderer {
   resize: (width: number, height: number) => void;
@@ -30,7 +37,9 @@ export interface GlassRenderer {
   setDim: (dim: number) => void;
   /** Redraw the backdrop (each frame for video or the aurora, once for a still image). */
   drawScene: (time: number) => void;
-  drawGlass: (panes: Pane[], light: { x: number; y: number; present: number }) => void;
+  /** How many panels this device can draw at once. */
+  maxPanes: number;
+  drawGlass: (panes: Pane[], light: { x: number; y: number }, pointer: { x: number; y: number }, sound: Sound) => void;
   destroy: () => void;
 }
 
@@ -82,7 +91,10 @@ export function createGlassRenderer(canvas: HTMLCanvasElement): GlassRenderer {
 
   const sceneProgram = program(sceneFragment);
   const frostProgram = program(frostFragment);
-  const glassProgram = program(glassFragment);
+  // Each panel needs six uniform vectors; leave room for the rest and stay within the device.
+  const vectors = Number(gl.getParameter(gl.MAX_FRAGMENT_UNIFORM_VECTORS)) || 64;
+  const maxPanes = Math.max(2, Math.min(MAX_PANES, Math.floor((vectors - 16) / 6)));
+  const glassProgram = program(`#define MAX_PANES ${maxPanes}\n${glassFragment}`);
   const buffer = gl.createBuffer();
   const sourceTexture = texture();
   const sceneTexture = texture();
@@ -96,12 +108,15 @@ export function createGlassRenderer(canvas: HTMLCanvasElement): GlassRenderer {
   const uniforms = (target: WebGLProgram, names: string[]) => Object.fromEntries(names.map((name) => [name, gl.getUniformLocation(target, name)]));
   const sceneU = uniforms(sceneProgram, ['u_size', 'u_dpr', 'u_mode', 'u_image', 'u_crop', 'u_time', 'u_colors[0]', 'u_base', 'u_dim']);
   const frostU = uniforms(frostProgram, ['u_background', 'u_size', 'u_step']);
-  const glassU = uniforms(glassProgram, ['u_scene', 'u_frost', 'u_size', 'u_dpr', 'u_count', 'u_rect[0]', 'u_look[0]', 'u_tint[0]', 'u_glow[0]', 'u_light']);
+  const glassU = uniforms(glassProgram, ['u_scene', 'u_frost', 'u_size', 'u_dpr', 'u_count', 'u_rect[0]', 'u_look[0]', 'u_tint[0]', 'u_profile[0]', 'u_lens[0]', 'u_extra[0]', 'u_light', 'u_pointer', 'u_bands[0]', 'u_level']);
 
-  const rects = new Float32Array(MAX_PANES * 4);
-  const looks = new Float32Array(MAX_PANES * 4);
-  const tints = new Float32Array(MAX_PANES * 4);
-  const glows = new Float32Array(MAX_PANES * 4);
+  const rects = new Float32Array(maxPanes * 4);
+  const looks = new Float32Array(maxPanes * 4);
+  const tints = new Float32Array(maxPanes * 4);
+  const profiles = new Float32Array(maxPanes * 4);
+  const lenses = new Float32Array(maxPanes * 4);
+  const extras = new Float32Array(maxPanes * 4);
+  const bands = new Float32Array(6);
   let width = 1;
   let height = 1;
   let dpr = 1;
@@ -132,7 +147,7 @@ export function createGlassRenderer(canvas: HTMLCanvasElement): GlassRenderer {
   function resize(nextWidth: number, nextHeight: number): void {
     width = Math.max(1, nextWidth);
     height = Math.max(1, nextHeight);
-    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    dpr = Math.min(window.devicePixelRatio || 1, 1.5);
     canvas.width = Math.round(width * dpr);
     canvas.height = Math.round(height * dpr);
     allocate(sceneTarget!, sceneTexture, canvas.width, canvas.height);
@@ -190,16 +205,19 @@ export function createGlassRenderer(canvas: HTMLCanvasElement): GlassRenderer {
     gl!.bindFramebuffer(gl!.FRAMEBUFFER, null);
   }
 
-  function drawGlass(panes: Pane[], light: { x: number; y: number; present: number }): void {
+  function drawGlass(panes: Pane[], light: { x: number; y: number }, pointer: { x: number; y: number }, sound: Sound): void {
     if (destroyed || !sized) return;
-    const count = Math.min(MAX_PANES, panes.length);
+    const count = Math.min(maxPanes, panes.length);
     for (let index = 0; index < count; index += 1) {
       const pane = panes[index];
       rects.set([pane.x, pane.y, pane.halfWidth, pane.halfHeight], index * 4);
-      looks.set([pane.radius, pane.bend, pane.frost, pane.rim], index * 4);
+      looks.set([pane.radius, pane.frost, pane.chroma, pane.pull], index * 4);
       tints.set(pane.tint, index * 4);
-      glows.set([pane.glow, pane.shadow, pane.chroma, 0], index * 4);
+      profiles.set([pane.depth, pane.rounding, pane.dome, pane.ior], index * 4);
+      lenses.set(pane.lens, index * 4);
+      extras.set([pane.glow, pane.shadow, pane.press, 0], index * 4);
     }
+    for (let index = 0; index < 6; index += 1) bands[index] = Number(sound.bands[index]) || 0;
     gl!.bindFramebuffer(gl!.FRAMEBUFFER, null);
     gl!.viewport(0, 0, canvas.width, canvas.height);
     bind(glassProgram);
@@ -215,8 +233,13 @@ export function createGlassRenderer(canvas: HTMLCanvasElement): GlassRenderer {
     gl!.uniform4fv(glassU['u_rect[0]'], rects);
     gl!.uniform4fv(glassU['u_look[0]'], looks);
     gl!.uniform4fv(glassU['u_tint[0]'], tints);
-    gl!.uniform4fv(glassU['u_glow[0]'], glows);
-    gl!.uniform3f(glassU.u_light, light.x, light.y, light.present);
+    gl!.uniform4fv(glassU['u_profile[0]'], profiles);
+    gl!.uniform4fv(glassU['u_lens[0]'], lenses);
+    gl!.uniform4fv(glassU['u_extra[0]'], extras);
+    gl!.uniform2f(glassU.u_light, light.x, light.y);
+    gl!.uniform2f(glassU.u_pointer, pointer.x, pointer.y);
+    gl!.uniform1fv(glassU['u_bands[0]'], bands);
+    gl!.uniform1f(glassU.u_level, Math.min(1, Math.max(0, sound.level)));
     gl!.drawArrays(gl!.TRIANGLES, 0, 3);
     gl!.activeTexture(gl!.TEXTURE0);
   }
@@ -233,5 +256,5 @@ export function createGlassRenderer(canvas: HTMLCanvasElement): GlassRenderer {
     gl!.getExtension('WEBGL_lose_context')?.loseContext();
   }
 
-  return { resize, setSource, setAurora, setDim, drawScene, drawGlass, destroy };
+  return { resize, setSource, setAurora, setDim, drawScene, drawGlass, destroy, maxPanes };
 }

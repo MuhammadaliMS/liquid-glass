@@ -1,1 +1,0 @@
-Dense field of tulips photographed from slightly above, filling the whole frame edge to edge: rows of vivid red (#e8202a), sunny yellow (#ffd21f), hot pink (#ff4f9a) and orange (#ff8a1f) blooms with fresh green stems and leaves, bright natural sunlight with crisp shadows, sharp focus across the image, rich saturated colour, landscape 3:2. No text, no people, no sky, no logos.

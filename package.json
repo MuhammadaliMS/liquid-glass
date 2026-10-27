@@ -1,6 +1,6 @@
 {
   "name": "@zerowing/liquid-glass",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Liquid glass for any website: a <liquid-glass> web component that turns your nav bars, buttons, cards and players into refracting glass.",
   "type": "module",
   "license": "MIT",

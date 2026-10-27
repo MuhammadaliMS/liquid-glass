@@ -1,3 +1,4 @@
+import { type MicrophoneState } from './core/audio';
 /**
  * <liquid-glass>: a scene for liquid glass. It draws a backdrop (the animated aurora, an image or a
  * video) and renders every descendant marked with the `glass` attribute as a piece of curved glass
@@ -32,12 +33,38 @@ export declare class LiquidGlassElement extends HTMLElement {
     private backdropRequest;
     private readonly pointer;
     private readonly light;
+    private readonly bulge;
+    private microphone;
+    private node;
+    private manualAudio;
+    private readonly silent;
+    private readonly demo;
+    private level;
+    private lastAudioStatus;
+    private liveSince;
     constructor();
     /** 'aurora' (default), or the URL of an image or video to refract. */
     get backdrop(): string;
     set backdrop(value: string);
     /** The glass elements this scene renders (at most 16). */
     get panes(): HTMLElement[];
+    /** The microphone's state: idle, requesting, live, denied, unavailable or error. */
+    get microphoneState(): MicrophoneState;
+    /** When the microphone went live (performance.now() time), for a recording timer. */
+    get listeningSince(): number;
+    /** Ask for the microphone and let the glass glow with it. Call from a click or a key press. */
+    startMicrophone(): Promise<boolean>;
+    /** Stop the microphone and release the device. */
+    stopMicrophone(): void;
+    /** Let any Web Audio node light the glass (a player, a synth). Returns a function that stops listening. */
+    listen(node: AudioNode): () => void;
+    /** Drive the glow with your own levels: six bands (low to high) and an overall level, 0 to 1. null stops. */
+    setAudio(frame: {
+        bands: ArrayLike<number>;
+        level: number;
+    } | null): void;
+    private mic;
+    private syncAudio;
     connectedCallback(): void;
     disconnectedCallback(): void;
     attributeChangedCallback(name: string, previous: string | null, next: string | null): void;

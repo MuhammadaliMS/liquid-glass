@@ -1,7 +1,7 @@
-var te = Object.defineProperty;
-var re = (o, e, t) => e in o ? te(o, e, { enumerable: !0, configurable: !0, writable: !0, value: t }) : o[e] = t;
-var c = (o, e, t) => re(o, typeof e != "symbol" ? e + "" : e, t);
-const ie = `precision highp float;
+var ce = Object.defineProperty;
+var ue = (o, e, t) => e in o ? ce(o, e, { enumerable: !0, configurable: !0, writable: !0, value: t }) : o[e] = t;
+var d = (o, e, t) => ue(o, typeof e != "symbol" ? e + "" : e, t);
+const de = `precision highp float;
 // The backdrop the glass bends: an image or video cropped to cover, or the built-in aurora.
 uniform vec2 u_size;      // CSS pixels
 uniform float u_dpr;
@@ -61,7 +61,7 @@ void main() {
   else color = u_base;
   gl_FragColor = vec4(color * (1.0 - u_dim), 1.0);
 }
-`, se = `precision highp float;
+`, he = `precision highp float;
 uniform sampler2D u_background;
 uniform vec2 u_size;
 uniform vec2 u_step;
@@ -87,29 +87,41 @@ void main() {
   color /= total;
   gl_FragColor = vec4(pow(color, vec3(1.0 / 2.2)), 1.0);
 }
-`, oe = `precision highp float;
-// Every glass panel on the scene, drawn in one pass. A panel is a rounded rectangle with a
-// convex rim: light passing near the edge bends inward (so the backdrop squeezes and
-// magnifies there), splits slightly by colour, and catches a rim of light that follows
-// the pointer. The flat middle stays clear, with an optional frost and tint.
-#define MAX_PANES 16
+`, fe = `precision highp float;
+// Every glass panel on the scene as a real solid of glass. Each panel is a rounded slab with
+// a domed crown and rounded edges, ray-traced from a camera straight in front of it: light
+// refracts into the slab, travels through it (bouncing inside when it can't get out), refracts
+// out and lands on the backdrop behind. That's what makes the backdrop magnify, flip and
+// smear at the rim. The same model as the liquid-glass playground's pebble.
+// MAX_PANES is defined by the renderer from what the device's GPU allows.
 uniform sampler2D u_scene;
 uniform sampler2D u_frost;
 uniform vec2 u_size;      // CSS pixels
 uniform float u_dpr;
 uniform int u_count;
-uniform vec4 u_rect[MAX_PANES];  // centre x, centre y, half width, half height (CSS px)
-uniform vec4 u_look[MAX_PANES];  // corner radius, bend (px), frost 0..1, rim width (px)
-uniform vec4 u_tint[MAX_PANES];  // rgb, strength
-uniform vec4 u_glow[MAX_PANES];  // press glow 0..1, shadow 0..1, chroma, unused
-uniform vec3 u_light;            // light position (CSS px), pointer present 0..1
+uniform vec4 u_rect[MAX_PANES];    // centre x, centre y, half width, half height (CSS px)
+uniform vec4 u_look[MAX_PANES];    // corner radius, frost 0..1, chroma, pointer pull (px)
+uniform vec4 u_tint[MAX_PANES];    // rgb, strength
+uniform vec4 u_profile[MAX_PANES]; // half depth, edge rounding, dome, index of refraction
+uniform vec4 u_lens[MAX_PANES];    // a raised disc on the face: x, y (from centre), radius, amount
+uniform vec4 u_extra[MAX_PANES];   // sound glow 0..1, shadow 0..1, press highlight 0..1, unused
+uniform vec2 u_light;              // light position, CSS px
+uniform vec2 u_pointer;            // pointer position, CSS px
+uniform float u_bands[6];          // sound, low to high
+uniform float u_level;
 
-vec3 scene(vec2 pixel) {
-  return texture2D(u_scene, clamp(vec2(pixel.x / u_size.x, 1.0 - pixel.y / u_size.y), 0.001, 0.999)).rgb;
-}
+const float CAMERA = 780.0;
+const float BACKGROUND = -190.0;
 
-vec3 frost(vec2 pixel) {
-  return texture2D(u_frost, clamp(vec2(pixel.x / u_size.x, 1.0 - pixel.y / u_size.y), 0.001, 0.999)).rgb;
+// The selected panel, copied out of the arrays (GLSL ES 1.0 can't index them by a variable).
+vec4 R; vec4 L; vec4 T; vec4 P; vec4 N; vec4 X;
+vec2 pointerLocal;
+
+vec3 sceneColor(vec2 pixel, float frost) {
+  vec2 uv = clamp(vec2(pixel.x / u_size.x, 1.0 - pixel.y / u_size.y), 0.001, 0.999);
+  vec3 clear = pow(texture2D(u_scene, uv).rgb, vec3(2.2));
+  vec3 blurred = pow(texture2D(u_frost, uv).rgb, vec3(2.2));
+  return mix(clear, blurred, clamp(frost, 0.0, 1.0));
 }
 
 float box(vec2 p, vec2 halfSize, float radius) {
@@ -117,183 +129,410 @@ float box(vec2 p, vec2 halfSize, float radius) {
   return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - radius;
 }
 
+// The panel's outline: its rounded rectangle, bulging a little toward a nearby pointer.
+float outline(vec2 p) {
+  float radius = min(L.x, min(R.z, R.w));
+  float d = box(p, R.zw, radius);
+  vec2 toPointer = p - pointerLocal;
+  return d - L.w * exp(-dot(toPointer, toPointer) / 1800.0);
+}
+
+vec3 field(vec2 p) {
+  float d = outline(p);
+  vec2 e = vec2(0.5, 0.0);
+  vec2 n = vec2(outline(p + e.xy) - outline(p - e.xy), outline(p + e.yx) - outline(p - e.yx));
+  return vec3(d, normalize(n + 1e-6));
+}
+
+// Rounded extrusion with a smooth convex crown; the gradient belongs to the same solid.
+vec4 solid(vec3 p) {
+  vec3 boundary = field(p.xy);
+  vec2 radius = max(R.zw, vec2(20.0));
+  float dome = P.z * exp(-1.5 * dot(p.xy / radius, p.xy / radius));
+  vec2 domeGradient = -3.0 * dome * p.xy / (radius * radius);
+  float rounding = P.y;
+  vec2 q = vec2(boundary.x + rounding, abs(p.z) - P.x - dome + rounding);
+  vec2 outside = max(q, 0.0);
+  float outsideLength = length(outside);
+  vec2 weights = outsideLength > 0.0001 ? outside / outsideLength : (q.x > q.y ? vec2(1.0, 0.0) : vec2(0.0, 1.0));
+  float distance = min(max(q.x, q.y), 0.0) + outsideLength - rounding;
+  vec3 gradient = weights.x * vec3(boundary.yz, 0.0) + weights.y * vec3(-domeGradient, sign(p.z));
+  if (N.w > 0.02) {
+    vec2 delta = p.xy - N.xy;
+    vec2 lensQ = vec2(length(delta) - N.z + 8.0, abs(p.z - P.x - 5.0) - 2.0);
+    vec2 lensOutside = max(lensQ, 0.0);
+    float lensLength = length(lensOutside);
+    vec2 lensWeights = lensLength > 0.0001 ? lensOutside / lensLength : (lensQ.x > lensQ.y ? vec2(1.0, 0.0) : vec2(0.0, 1.0));
+    float lensDistance = min(max(lensQ.x, lensQ.y), 0.0) + lensLength - 8.0;
+    vec3 lensGradient = vec3(delta / max(length(delta), 0.001) * lensWeights.x, sign(p.z - P.x - 5.0) * lensWeights.y);
+    float blend = clamp(0.5 + 0.5 * (distance - lensDistance) / 2.5, 0.0, 1.0) * N.w;
+    distance = mix(distance, lensDistance, blend) - 2.5 * blend * (1.0 - blend);
+    gradient = mix(gradient, lensGradient, blend);
+  }
+  return vec4(distance, gradient);
+}
+
+bool enterSolid(vec3 origin, vec3 direction, out vec3 hit) {
+  vec3 bounds = vec3(R.zw + L.w + 6.0, P.x + P.z + 10.0);
+  vec3 inverseRay = 1.0 / (direction + vec3(0.000001));
+  vec3 a = (-bounds - origin) * inverseRay;
+  vec3 b = (bounds - origin) * inverseRay;
+  vec3 nearBox = min(a, b);
+  vec3 farBox = max(a, b);
+  float nearDistance = max(max(nearBox.x, nearBox.y), nearBox.z);
+  float farDistance = min(min(farBox.x, farBox.y), farBox.z);
+  float travel = max(0.0, nearDistance);
+  if (farDistance < travel) return false;
+  for (int i = 0; i < 56; i++) {
+    hit = origin + direction * travel;
+    float distance = solid(hit).x;
+    if (distance < 0.12) return true;
+    travel += max(0.06, distance * 0.74);
+    if (travel > farDistance) break;
+  }
+  return false;
+}
+
+vec3 exitSolid(vec3 origin, vec3 direction, out float traveled) {
+  float travel = 0.6;
+  vec3 point = origin + direction * travel;
+  float limit = 2.0 * (R.z + R.w) + 2.0 * P.x;
+  for (int i = 0; i < 48; i++) {
+    point = origin + direction * travel;
+    float distance = -solid(point).x;
+    if (i > 1 && distance < 0.12) break;
+    travel += max(0.10, distance * 0.74);
+    if (travel > limit) break;
+  }
+  traveled = travel;
+  return point;
+}
+
+vec3 environment(vec3 direction, vec2 pixel) {
+  vec2 reflectedPixel = u_size * 0.5 + direction.xy * u_size * 0.42;
+  vec3 reflectedScene = sceneColor(reflectedPixel, 0.9);
+  float softbox = exp(-pow((direction.x + 0.42) / 0.16, 2.0) - pow((direction.y + 0.58) / 0.28, 4.0));
+  float fill = exp(-pow((direction.x - 0.7) / 0.10, 2.0) - pow(direction.y / 0.55, 4.0));
+  return mix(reflectedScene, sceneColor(pixel, 0.65), 0.20) + vec3(0.96, 0.98, 1.0) * (softbox * 1.65 + fill * 0.32);
+}
+
+float energy(vec2 p, vec2 origin, vec2 spread) {
+  vec2 d = (p - origin) / spread;
+  return exp(-dot(d, d));
+}
+
 void main() {
   vec2 pixel = vec2(gl_FragCoord.x, u_size.y * u_dpr - gl_FragCoord.y) / u_dpr;
-  vec3 base = scene(pixel);
+  vec3 base = sceneColor(pixel, 0.0);
 
-  // The nearest panel owns this pixel; every panel casts a soft shadow.
+  // Later panels sit on top (a knob on its track); outside every panel, the nearest one wins.
   float nearest = 1e5;
-  vec4 rect = vec4(0.0);
-  vec4 look = vec4(0.0);
-  vec4 tint = vec4(0.0);
-  vec4 glow = vec4(0.0);
   float shade = 0.0;
   for (int i = 0; i < MAX_PANES; i++) {
     if (i >= u_count) break;
     vec4 r = u_rect[i];
     float radius = min(u_look[i].x, min(r.z, r.w));
-    float d = box(pixel - r.xy, r.zw, radius);
+    vec2 local = pixel - r.xy;
+    float d = box(local, r.zw, radius) - u_look[i].w;
     float lift = min(r.w, 40.0);
-    float s = box(pixel - r.xy - vec2(0.0, lift * 0.28), r.zw, radius);
-    shade = max(shade, (1.0 - smoothstep(-lift * 0.4, lift * 0.9, s)) * u_glow[i].y);
-    // Later panels sit on top (a knob on its track, a tab on its bar); outside any panel the nearest wins.
-    bool take = d < 1.0 || (nearest >= 1.0 && d < nearest);
-    if (take) { nearest = d; rect = r; look = u_look[i]; tint = u_tint[i]; glow = u_glow[i]; }
+    float s = box(local - vec2(2.0, lift * 0.22), r.zw, radius);
+    shade = max(shade, (1.0 - smoothstep(-lift * 0.3, lift * 0.8, s)) * u_extra[i].y);
+    bool take = d < 2.0 || (nearest >= 2.0 && d < nearest);
+    if (take) { nearest = d; R = r; L = u_look[i]; T = u_tint[i]; P = u_profile[i]; N = u_lens[i]; X = u_extra[i]; }
   }
-  vec3 outside = base * (1.0 - shade * 0.28);
-  if (nearest > 1.0) { gl_FragColor = vec4(outside, 1.0); return; }
+  vec3 outside = base * (1.0 - shade * 0.16);
+  if (nearest > 2.0 || u_count == 0) { gl_FragColor = vec4(pow(outside, vec3(1.0 / 2.2)), 1.0); return; }
 
-  vec2 p = pixel - rect.xy;
-  float radius = min(look.x, min(rect.z, rect.w));
-  vec2 e = vec2(0.75, 0.0);
-  vec2 normal = normalize(vec2(box(p + e.xy, rect.zw, radius) - box(p - e.xy, rect.zw, radius), box(p + e.yx, rect.zw, radius) - box(p - e.yx, rect.zw, radius)) + 1e-5);
-  float rim = max(look.w, 1.0);
-  float depth = clamp(-nearest / rim, 0.0, 1.0);   // 0 at the edge, 1 where the face is flat
-  float edge = 1.0 - depth;
-  // A circular rim profile: steepest at the edge, flat by the time it reaches the face.
-  float bend = edge * edge * (3.0 - 2.0 * edge);
-  vec2 offset = -normal * bend * look.y - p * 0.035 * depth;
-  float chroma = glow.z;
-  vec3 sharp = vec3(scene(pixel + offset * (1.0 + chroma)).r, scene(pixel + offset).g, scene(pixel + offset * (1.0 - chroma)).b);
-  vec3 soft = frost(pixel + offset);
-  vec3 color = mix(sharp, soft, clamp(look.z + edge * edge * 0.25, 0.0, 1.0));
-  color = mix(color, tint.rgb, tint.a);
-  color *= 1.03 + glow.x * 0.08;
+  vec2 local = pixel - R.xy;
+  pointerLocal = u_pointer - R.xy;
+  vec3 origin = vec3(0.0, 0.0, CAMERA);
+  vec3 viewRay = normalize(vec3(local, -CAMERA));
+  vec3 direction = viewRay;
+  vec3 front;
+  if (!enterSolid(origin, direction, front)) {
+    float contact = (1.0 - smoothstep(-2.0, 13.0, outline(local - vec2(2.0, 7.0)))) * 0.045;
+    gl_FragColor = vec4(pow(outside * (1.0 - contact), vec3(1.0 / 2.2)), 1.0);
+    return;
+  }
+  vec3 normal = normalize(solid(front).yzw);
+  float ior = P.w;
+  vec3 inside = refract(direction, normal, 1.0 / ior);
+  float pathLength;
+  vec3 rear = exitSolid(front, inside, pathLength);
+  vec3 rearNormal = normalize(solid(rear).yzw);
+  vec3 outgoing = refract(inside, -rearNormal, ior);
+  // Follow one internal bounce instead of a dark band where the first exit totally reflects.
+  if (dot(outgoing, outgoing) < 0.01) {
+    inside = reflect(inside, rearNormal);
+    float secondLength;
+    rear = exitSolid(rear, inside, secondLength);
+    pathLength += secondLength;
+    rearNormal = normalize(solid(rear).yzw);
+    outgoing = refract(inside, -rearNormal, ior);
+    if (dot(outgoing, outgoing) < 0.01) outgoing = reflect(inside, rearNormal);
+  }
+  vec3 reflected = environment(reflect(viewRay, normal), pixel);
+  vec3 transmitted;
+  float frost = L.y;
+  if (outgoing.z < -0.045) {
+    float distance = (BACKGROUND - rear.z) / outgoing.z;
+    vec2 backgroundPoint = (rear.xy + outgoing.xy * distance) * CAMERA / (CAMERA - BACKGROUND);
+    vec2 rayPixel = R.xy + backgroundPoint;
+    vec2 displacement = clamp(rayPixel - pixel, vec2(-180.0), vec2(180.0));
+    float grazing = 1.0 - max(dot(normal, -viewRay), 0.0);
+    float filtering = clamp(grazing * grazing * 1.6 + length(displacement) / 300.0 + frost, 0.02, 0.92);
+    float chroma = L.z;
+    vec3 red = sceneColor(pixel + displacement * (1.0 - chroma), filtering);
+    vec3 green = sceneColor(pixel + displacement, filtering);
+    vec3 blue = sceneColor(pixel + displacement * (1.0 + chroma), filtering);
+    transmitted = vec3(red.r, green.g, blue.b);
+  } else transmitted = environment(outgoing, pixel);
+  transmitted *= exp(-vec3(0.00032, 0.00015, 0.00007) * min(pathLength, 250.0));
+  transmitted = mix(transmitted, pow(T.rgb, vec3(2.2)), T.a);
 
-  // Light: a bright rim on the side facing the light, a fainter one opposite, and a hairline edge.
-  vec2 toLight = normalize(u_light.xy - pixel + 1e-5);
-  float facing = dot(normal, toLight);
-  float rimLight = pow(edge, 5.0) * (0.55 * max(facing, 0.0) + 0.18 * max(-facing, 0.0));
-  float hairline = (1.0 - smoothstep(0.0, 1.6, -nearest)) * (0.32 + 0.3 * max(facing, 0.0));
-  float sheen = exp(-dot(pixel - u_light.xy, pixel - u_light.xy) / (rect.z * rect.w * 0.9 + 400.0)) * 0.10 * u_light.z;
-  color += vec3(1.0) * (rimLight + hairline + sheen + glow.x * 0.05);
-  color *= 1.0 - pow(edge, 3.0) * 0.10 * max(normal.y, 0.0);
+  float f0 = pow((ior - 1.0) / (ior + 1.0), 2.0);
+  float fresnel = f0 + (1.0 - f0) * pow(1.0 - max(dot(normal, -viewRay), 0.0), 5.0);
+  vec3 color = mix(transmitted, reflected, fresnel);
+  vec3 toLight = normalize(vec3(u_light - R.xy - front.xy, 500.0));
+  vec3 halfVector = normalize(toLight - viewRay);
+  color += vec3(0.97, 0.985, 1.0) * pow(max(dot(normal, halfVector), 0.0), 160.0) * (0.04 + X.z * 0.10);
+  color *= 1.0 + X.z * 0.06;
+
+  // Sound lights the glass from inside in six colours, low notes left to high notes right.
+  if (X.x > 0.001) {
+    vec2 q = front.xy / max(R.zw, vec2(1.0));
+    vec3 glow = vec3(1.0, 0.45, 0.10) * u_bands[0] * energy(q, vec2(-0.39, 0.53), vec2(0.26, 0.53));
+    glow += vec3(1.0, 0.19, 0.08) * u_bands[1] * energy(q, vec2(-0.20, 0.64), vec2(0.24, 0.48));
+    glow += vec3(1.0, 0.025, 0.30) * u_bands[2] * energy(q, vec2(0.03, 0.61), vec2(0.28, 0.52));
+    glow += vec3(0.47, 0.04, 1.0) * u_bands[3] * energy(q, vec2(0.28, 0.55), vec2(0.26, 0.53));
+    glow += vec3(0.08, 0.23, 1.0) * u_bands[4] * energy(q, vec2(0.52, 0.38), vec2(0.23, 0.52));
+    glow += vec3(0.035, 0.75, 1.0) * u_bands[5] * energy(q, vec2(-0.64, 0.17), vec2(0.17, 0.53));
+    color += glow * u_level * 0.75 * X.x;
+  }
+  if (N.w > 0.5 && length(front.xy - N.xy) < N.z - 2.0) color = mix(color, sceneColor(pixel, 0.85), 0.15);
 
   float coverage = clamp(0.5 - nearest * u_dpr, 0.0, 1.0);
-  gl_FragColor = vec4(mix(outside, color, coverage), 1.0);
+  color = mix(outside, color, max(coverage, step(nearest, -1.0)));
+  gl_FragColor = vec4(pow(max(color, vec3(0.0)), vec3(1.0 / 2.2)), 1.0);
 }
 `;
-function ne(o, e, t, r) {
-  if (![o, e, t, r].every((h) => Number.isFinite(h) && h > 0))
+function me(o, e, t, n) {
+  if (![o, e, t, n].every((u) => Number.isFinite(u) && u > 0))
     throw new RangeError("Backdrop dimensions must be finite and positive.");
-  const i = o / e, l = t / r, u = Math.min(1, i / l), b = Math.min(1, l / i);
-  return [u, b, (1 - u) / 2, (1 - b) / 2];
+  const i = o / e, s = t / n, a = Math.min(1, i / s), y = Math.min(1, s / i);
+  return [a, y, (1 - a) / 2, (1 - y) / 2];
 }
-function ae(o, e = () => new Image()) {
-  return new Promise((t, r) => {
+function pe(o, e = () => new Image()) {
+  return new Promise((t, n) => {
     const i = e();
     i.decoding = "async", i.crossOrigin = "anonymous", i.onload = () => {
       if (i.onload = null, i.onerror = null, i.naturalWidth <= 0 || i.naturalHeight <= 0) {
-        r(new Error("The backdrop image has invalid image dimensions."));
+        n(new Error("The backdrop image has invalid image dimensions."));
         return;
       }
       t({ source: i, width: i.naturalWidth, height: i.naturalHeight });
     }, i.onerror = () => {
-      i.onload = null, i.onerror = null, r(new Error("The backdrop image could not load; the procedural scene remains available."));
+      i.onload = null, i.onerror = null, n(new Error("The backdrop image could not load; the procedural scene remains available."));
     }, i.src = o;
   });
 }
-const D = 16, le = "attribute vec2 a_position; void main() { gl_Position = vec4(a_position, 0.0, 1.0); }";
-function ce(o) {
+const J = 16, ge = "attribute vec2 a_position; void main() { gl_Position = vec4(a_position, 0.0, 1.0); }";
+function ve(o) {
   const e = o.getContext("webgl", { alpha: !1, antialias: !1, premultipliedAlpha: !1, powerPreference: "low-power" });
   if (!e) throw new Error("WebGL is unavailable.");
-  const t = [], r = [];
-  function i(n, a) {
-    const p = e.createShader(n);
-    if (!p) throw new Error("Unable to allocate a glass shader.");
-    if (e.shaderSource(p, a), e.compileShader(p), !e.getShaderParameter(p, e.COMPILE_STATUS)) {
-      const y = e.getShaderInfoLog(p);
-      throw e.deleteShader(p), new Error(`Glass shader failed: ${y}`);
+  const t = [], n = [];
+  function i(c, m) {
+    const x = e.createShader(c);
+    if (!x) throw new Error("Unable to allocate a glass shader.");
+    if (e.shaderSource(x, m), e.compileShader(x), !e.getShaderParameter(x, e.COMPILE_STATUS)) {
+      const N = e.getShaderInfoLog(x);
+      throw e.deleteShader(x), new Error(`Glass shader failed: ${N}`);
     }
-    return t.push(p), p;
+    return t.push(x), x;
   }
-  function l(n) {
-    const a = e.createProgram();
-    if (!a) throw new Error("Unable to allocate the glass renderer.");
-    if (e.attachShader(a, i(e.VERTEX_SHADER, le)), e.attachShader(a, i(e.FRAGMENT_SHADER, n)), e.linkProgram(a), !e.getProgramParameter(a, e.LINK_STATUS)) throw new Error(`Glass renderer failed to link: ${e.getProgramInfoLog(a)}`);
-    return r.push(a), a;
+  function s(c) {
+    const m = e.createProgram();
+    if (!m) throw new Error("Unable to allocate the glass renderer.");
+    if (e.attachShader(m, i(e.VERTEX_SHADER, ge)), e.attachShader(m, i(e.FRAGMENT_SHADER, c)), e.linkProgram(m), !e.getProgramParameter(m, e.LINK_STATUS)) throw new Error(`Glass renderer failed to link: ${e.getProgramInfoLog(m)}`);
+    return n.push(m), m;
   }
-  function u() {
-    const n = e.createTexture();
-    if (!n) throw new Error("Unable to allocate a glass texture.");
-    return e.bindTexture(e.TEXTURE_2D, n), e.texParameteri(e.TEXTURE_2D, e.TEXTURE_MIN_FILTER, e.LINEAR), e.texParameteri(e.TEXTURE_2D, e.TEXTURE_MAG_FILTER, e.LINEAR), e.texParameteri(e.TEXTURE_2D, e.TEXTURE_WRAP_S, e.CLAMP_TO_EDGE), e.texParameteri(e.TEXTURE_2D, e.TEXTURE_WRAP_T, e.CLAMP_TO_EDGE), e.texImage2D(e.TEXTURE_2D, 0, e.RGBA, 1, 1, 0, e.RGBA, e.UNSIGNED_BYTE, new Uint8Array([20, 24, 40, 255])), n;
+  function a() {
+    const c = e.createTexture();
+    if (!c) throw new Error("Unable to allocate a glass texture.");
+    return e.bindTexture(e.TEXTURE_2D, c), e.texParameteri(e.TEXTURE_2D, e.TEXTURE_MIN_FILTER, e.LINEAR), e.texParameteri(e.TEXTURE_2D, e.TEXTURE_MAG_FILTER, e.LINEAR), e.texParameteri(e.TEXTURE_2D, e.TEXTURE_WRAP_S, e.CLAMP_TO_EDGE), e.texParameteri(e.TEXTURE_2D, e.TEXTURE_WRAP_T, e.CLAMP_TO_EDGE), e.texImage2D(e.TEXTURE_2D, 0, e.RGBA, 1, 1, 0, e.RGBA, e.UNSIGNED_BYTE, new Uint8Array([20, 24, 40, 255])), c;
   }
-  const b = l(ie), h = l(se), T = l(oe), _ = e.createBuffer(), m = u(), A = u(), X = u(), R = e.createFramebuffer(), d = e.createFramebuffer();
-  if (!_ || !R || !d) throw new Error("Unable to allocate glass buffers.");
-  e.bindBuffer(e.ARRAY_BUFFER, _), e.bufferData(e.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), e.STATIC_DRAW);
-  const f = (n, a) => Object.fromEntries(a.map((p) => [p, e.getUniformLocation(n, p)])), s = f(b, ["u_size", "u_dpr", "u_mode", "u_image", "u_crop", "u_time", "u_colors[0]", "u_base", "u_dim"]), v = f(h, ["u_background", "u_size", "u_step"]), g = f(T, ["u_scene", "u_frost", "u_size", "u_dpr", "u_count", "u_rect[0]", "u_look[0]", "u_tint[0]", "u_glow[0]", "u_light"]), P = new Float32Array(D * 4), w = new Float32Array(D * 4), z = new Float32Array(D * 4), C = new Float32Array(D * 4);
-  let F = 1, U = 1, S = 1, B = !1, L = !1, N = 1, V = 0, I = { width: 1, height: 1 }, q = new Float32Array([1, 0.35, 0.12, 1, 0.18, 0.54, 0.42, 0.23, 1, 0, 0.76, 1]), G = new Float32Array([0.04, 0.03, 0.12]);
-  function Y(n) {
-    e.useProgram(n), e.bindBuffer(e.ARRAY_BUFFER, _);
-    const a = e.getAttribLocation(n, "a_position");
-    e.enableVertexAttribArray(a), e.vertexAttribPointer(a, 2, e.FLOAT, !1, 0, 0);
+  const y = s(de), u = s(he), b = Number(e.getParameter(e.MAX_FRAGMENT_UNIFORM_VECTORS)) || 64, g = Math.max(2, Math.min(J, Math.floor((b - 16) / 6))), h = s(`#define MAX_PANES ${g}
+${fe}`), p = e.createBuffer(), A = a(), M = a(), _ = a(), C = e.createFramebuffer(), w = e.createFramebuffer();
+  if (!p || !C || !w) throw new Error("Unable to allocate glass buffers.");
+  e.bindBuffer(e.ARRAY_BUFFER, p), e.bufferData(e.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), e.STATIC_DRAW);
+  const F = (c, m) => Object.fromEntries(m.map((x) => [x, e.getUniformLocation(c, x)])), l = F(y, ["u_size", "u_dpr", "u_mode", "u_image", "u_crop", "u_time", "u_colors[0]", "u_base", "u_dim"]), f = F(u, ["u_background", "u_size", "u_step"]), r = F(h, ["u_scene", "u_frost", "u_size", "u_dpr", "u_count", "u_rect[0]", "u_look[0]", "u_tint[0]", "u_profile[0]", "u_lens[0]", "u_extra[0]", "u_light", "u_pointer", "u_bands[0]", "u_level"]), v = new Float32Array(g * 4), S = new Float32Array(g * 4), U = new Float32Array(g * 4), P = new Float32Array(g * 4), B = new Float32Array(g * 4), q = new Float32Array(g * 4), I = new Float32Array(6);
+  let z = 1, E = 1, X = 1, G = !1, V = !1, W = 1, $ = 0, Y = { width: 1, height: 1 }, H = new Float32Array([1, 0.35, 0.12, 1, 0.18, 0.54, 0.42, 0.23, 1, 0, 0.76, 1]), Q = new Float32Array([0.04, 0.03, 0.12]);
+  function O(c) {
+    e.useProgram(c), e.bindBuffer(e.ARRAY_BUFFER, p);
+    const m = e.getAttribLocation(c, "a_position");
+    e.enableVertexAttribArray(m), e.vertexAttribPointer(m, 2, e.FLOAT, !1, 0, 0);
   }
-  function O(n, a, p, y) {
-    if (e.bindTexture(e.TEXTURE_2D, a), e.texImage2D(e.TEXTURE_2D, 0, e.RGBA, p, y, 0, e.RGBA, e.UNSIGNED_BYTE, null), e.bindFramebuffer(e.FRAMEBUFFER, n), e.framebufferTexture2D(e.FRAMEBUFFER, e.COLOR_ATTACHMENT0, e.TEXTURE_2D, a, 0), e.checkFramebufferStatus(e.FRAMEBUFFER) !== e.FRAMEBUFFER_COMPLETE) throw new Error("A glass framebuffer is incomplete.");
+  function j(c, m, x, N) {
+    if (e.bindTexture(e.TEXTURE_2D, m), e.texImage2D(e.TEXTURE_2D, 0, e.RGBA, x, N, 0, e.RGBA, e.UNSIGNED_BYTE, null), e.bindFramebuffer(e.FRAMEBUFFER, c), e.framebufferTexture2D(e.FRAMEBUFFER, e.COLOR_ATTACHMENT0, e.TEXTURE_2D, m, 0), e.checkFramebufferStatus(e.FRAMEBUFFER) !== e.FRAMEBUFFER_COMPLETE) throw new Error("A glass framebuffer is incomplete.");
   }
-  function H(n, a) {
-    F = Math.max(1, n), U = Math.max(1, a), S = Math.min(window.devicePixelRatio || 1, 2), o.width = Math.round(F * S), o.height = Math.round(U * S), O(R, A, o.width, o.height), O(d, X, Math.max(1, Math.ceil(o.width / 4)), Math.max(1, Math.ceil(o.height / 4))), e.bindFramebuffer(e.FRAMEBUFFER, null), B = !0;
+  function ne(c, m) {
+    z = Math.max(1, c), E = Math.max(1, m), X = Math.min(window.devicePixelRatio || 1, 1.5), o.width = Math.round(z * X), o.height = Math.round(E * X), j(C, M, o.width, o.height), j(w, _, Math.max(1, Math.ceil(o.width / 4)), Math.max(1, Math.ceil(o.height / 4))), e.bindFramebuffer(e.FRAMEBUFFER, null), G = !0;
   }
-  function j(n, a = 1, p = 1) {
-    N = n === "wait" ? 2 : n ? 0 : 1, !(!n || n === "wait") && (I = { width: Math.max(1, a), height: Math.max(1, p) }, e.bindTexture(e.TEXTURE_2D, m), e.pixelStorei(e.UNPACK_FLIP_Y_WEBGL, !0), e.texImage2D(e.TEXTURE_2D, 0, e.RGBA, e.RGBA, e.UNSIGNED_BYTE, n), e.pixelStorei(e.UNPACK_FLIP_Y_WEBGL, !1));
+  function ie(c, m = 1, x = 1) {
+    W = c === "wait" ? 2 : c ? 0 : 1, !(!c || c === "wait") && (Y = { width: Math.max(1, m), height: Math.max(1, x) }, e.bindTexture(e.TEXTURE_2D, A), e.pixelStorei(e.UNPACK_FLIP_Y_WEBGL, !0), e.texImage2D(e.TEXTURE_2D, 0, e.RGBA, e.RGBA, e.UNSIGNED_BYTE, c), e.pixelStorei(e.UNPACK_FLIP_Y_WEBGL, !1));
   }
-  function K(n, a) {
-    q = new Float32Array(Array.from({ length: 4 }, (p, y) => n[y % n.length]).flat()), G = new Float32Array(a);
+  function re(c, m) {
+    H = new Float32Array(Array.from({ length: 4 }, (x, N) => c[N % c.length]).flat()), Q = new Float32Array(m);
   }
-  function Q(n) {
-    V = Math.min(0.9, Math.max(0, Number.isFinite(n) ? n : 0));
+  function oe(c) {
+    $ = Math.min(0.9, Math.max(0, Number.isFinite(c) ? c : 0));
   }
-  function J(n) {
-    if (L || !B) return;
-    e.bindFramebuffer(e.FRAMEBUFFER, R), e.viewport(0, 0, o.width, o.height), Y(b), e.activeTexture(e.TEXTURE0), e.bindTexture(e.TEXTURE_2D, m), e.uniform1i(s.u_image, 0), e.uniform2f(s.u_size, F, U), e.uniform1f(s.u_dpr, S), e.uniform1f(s.u_mode, N), e.uniform4f(s.u_crop, ...ne(F, U, I.width, I.height)), e.uniform1f(s.u_time, n), e.uniform3fv(s["u_colors[0]"], q), e.uniform3fv(s.u_base, G), e.uniform1f(s.u_dim, V), e.drawArrays(e.TRIANGLES, 0, 3);
-    const a = Math.max(1, Math.ceil(o.width / 4)), p = Math.max(1, Math.ceil(o.height / 4));
-    e.bindFramebuffer(e.FRAMEBUFFER, d), e.viewport(0, 0, a, p), Y(h), e.bindTexture(e.TEXTURE_2D, A), e.uniform1i(v.u_background, 0), e.uniform2f(v.u_size, a, p), e.uniform2f(v.u_step, 5 * S / o.width, 5 * S / o.height), e.drawArrays(e.TRIANGLES, 0, 3), e.bindFramebuffer(e.FRAMEBUFFER, null);
+  function se(c) {
+    if (V || !G) return;
+    e.bindFramebuffer(e.FRAMEBUFFER, C), e.viewport(0, 0, o.width, o.height), O(y), e.activeTexture(e.TEXTURE0), e.bindTexture(e.TEXTURE_2D, A), e.uniform1i(l.u_image, 0), e.uniform2f(l.u_size, z, E), e.uniform1f(l.u_dpr, X), e.uniform1f(l.u_mode, W), e.uniform4f(l.u_crop, ...me(z, E, Y.width, Y.height)), e.uniform1f(l.u_time, c), e.uniform3fv(l["u_colors[0]"], H), e.uniform3fv(l.u_base, Q), e.uniform1f(l.u_dim, $), e.drawArrays(e.TRIANGLES, 0, 3);
+    const m = Math.max(1, Math.ceil(o.width / 4)), x = Math.max(1, Math.ceil(o.height / 4));
+    e.bindFramebuffer(e.FRAMEBUFFER, w), e.viewport(0, 0, m, x), O(u), e.bindTexture(e.TEXTURE_2D, M), e.uniform1i(f.u_background, 0), e.uniform2f(f.u_size, m, x), e.uniform2f(f.u_step, 5 * X / o.width, 5 * X / o.height), e.drawArrays(e.TRIANGLES, 0, 3), e.bindFramebuffer(e.FRAMEBUFFER, null);
   }
-  function Z(n, a) {
-    if (L || !B) return;
-    const p = Math.min(D, n.length);
-    for (let y = 0; y < p; y += 1) {
-      const x = n[y];
-      P.set([x.x, x.y, x.halfWidth, x.halfHeight], y * 4), w.set([x.radius, x.bend, x.frost, x.rim], y * 4), z.set(x.tint, y * 4), C.set([x.glow, x.shadow, x.chroma, 0], y * 4);
+  function ae(c, m, x, N) {
+    if (V || !G) return;
+    const K = Math.min(g, c.length);
+    for (let T = 0; T < K; T += 1) {
+      const R = c[T];
+      v.set([R.x, R.y, R.halfWidth, R.halfHeight], T * 4), S.set([R.radius, R.frost, R.chroma, R.pull], T * 4), U.set(R.tint, T * 4), P.set([R.depth, R.rounding, R.dome, R.ior], T * 4), B.set(R.lens, T * 4), q.set([R.glow, R.shadow, R.press, 0], T * 4);
     }
-    e.bindFramebuffer(e.FRAMEBUFFER, null), e.viewport(0, 0, o.width, o.height), Y(T), e.activeTexture(e.TEXTURE0), e.bindTexture(e.TEXTURE_2D, A), e.activeTexture(e.TEXTURE1), e.bindTexture(e.TEXTURE_2D, X), e.uniform1i(g.u_scene, 0), e.uniform1i(g.u_frost, 1), e.uniform2f(g.u_size, F, U), e.uniform1f(g.u_dpr, S), e.uniform1i(g.u_count, p), e.uniform4fv(g["u_rect[0]"], P), e.uniform4fv(g["u_look[0]"], w), e.uniform4fv(g["u_tint[0]"], z), e.uniform4fv(g["u_glow[0]"], C), e.uniform3f(g.u_light, a.x, a.y, a.present), e.drawArrays(e.TRIANGLES, 0, 3), e.activeTexture(e.TEXTURE0);
+    for (let T = 0; T < 6; T += 1) I[T] = Number(N.bands[T]) || 0;
+    e.bindFramebuffer(e.FRAMEBUFFER, null), e.viewport(0, 0, o.width, o.height), O(h), e.activeTexture(e.TEXTURE0), e.bindTexture(e.TEXTURE_2D, M), e.activeTexture(e.TEXTURE1), e.bindTexture(e.TEXTURE_2D, _), e.uniform1i(r.u_scene, 0), e.uniform1i(r.u_frost, 1), e.uniform2f(r.u_size, z, E), e.uniform1f(r.u_dpr, X), e.uniform1i(r.u_count, K), e.uniform4fv(r["u_rect[0]"], v), e.uniform4fv(r["u_look[0]"], S), e.uniform4fv(r["u_tint[0]"], U), e.uniform4fv(r["u_profile[0]"], P), e.uniform4fv(r["u_lens[0]"], B), e.uniform4fv(r["u_extra[0]"], q), e.uniform2f(r.u_light, m.x, m.y), e.uniform2f(r.u_pointer, x.x, x.y), e.uniform1fv(r["u_bands[0]"], I), e.uniform1f(r.u_level, Math.min(1, Math.max(0, N.level))), e.drawArrays(e.TRIANGLES, 0, 3), e.activeTexture(e.TEXTURE0);
   }
-  function ee() {
-    L || (L = !0, t.forEach((n) => e.deleteShader(n)), r.forEach((n) => e.deleteProgram(n)), [m, A, X].forEach((n) => e.deleteTexture(n)), e.deleteFramebuffer(R), e.deleteFramebuffer(d), e.deleteBuffer(_), e.getExtension("WEBGL_lose_context")?.loseContext());
+  function le() {
+    V || (V = !0, t.forEach((c) => e.deleteShader(c)), n.forEach((c) => e.deleteProgram(c)), [A, M, _].forEach((c) => e.deleteTexture(c)), e.deleteFramebuffer(C), e.deleteFramebuffer(w), e.deleteBuffer(p), e.getExtension("WEBGL_lose_context")?.loseContext());
   }
-  return { resize: H, setSource: j, setAurora: K, setDim: Q, drawScene: J, drawGlass: Z, destroy: ee };
+  return { resize: ne, setSource: ie, setAurora: re, setDim: oe, drawScene: se, drawGlass: ae, destroy: le, maxPanes: g };
 }
-function E(o, e, t) {
+const ye = [[30, 120], [120, 300], [300, 700], [700, 1600], [1600, 4e3], [4e3, 1e4]];
+function xe(o, e, t, n = new Float32Array(6)) {
+  if (!Number.isFinite(e) || e <= 0 || !Number.isInteger(t) || t < 32 || t > 32768 || (t & t - 1) !== 0 || o.length !== t / 2 || n.length < 6)
+    throw new RangeError("Audio analysis needs a valid sample rate, power-of-two FFT and matching spectrum.");
+  const i = e / t;
+  return ye.forEach(([s, a], y) => {
+    const u = Math.max(1, Math.ceil(s / i)), b = Math.min(o.length, Math.ceil(a / i));
+    let g = 0, h = 0;
+    for (let A = u; A < b; A += 1) {
+      const M = o[A] / 255;
+      g += M * M, h = Math.max(h, M);
+    }
+    const p = b > u ? Math.sqrt(g / (b - u)) : 0;
+    n[y] = Math.min(1, (p * 0.4 + h * 0.6) * 1.3);
+  }), n;
+}
+function be(o) {
+  const e = !!o.getUserMedia && !!o.createAudioContext;
+  let t = { status: e ? "idle" : "unavailable", message: e ? "" : "Microphone analysis is not supported in this browser. The visual demo still works." }, n = null, i = null, s = null, a = null, y = new Uint8Array(0), u = new Float32Array(0);
+  const b = new Float32Array(6), g = { bands: new Float32Array(6), level: 0 };
+  let h = 0, p = null;
+  async function A() {
+    const w = n, F = i, l = s, f = a;
+    n = null, i = null, s = null, a = null, l?.disconnect(), f?.disconnect(), F?.getTracks().forEach((r) => r.stop()), g.bands.fill(0), g.level = 0, w && w.state !== "closed" && await w.close().catch(() => {
+    });
+  }
+  async function M() {
+    h += 1, t = { status: e ? "idle" : "unavailable", message: e ? "" : t.message }, await A();
+  }
+  function _() {
+    if (!e) return Promise.resolve(!1);
+    if (t.status === "live") return Promise.resolve(!0);
+    if (t.status === "requesting" && p) return p;
+    const w = ++h;
+    t = { status: "requesting", message: "Allow microphone access in your browser, or cancel to keep exploring." };
+    const F = (async () => {
+      try {
+        const l = o.createAudioContext();
+        n = l;
+        const f = l.resume().then(() => null, (S) => S), r = await o.getUserMedia({ audio: { echoCancellation: !0, noiseSuppression: !0, autoGainControl: !0 }, video: !1 });
+        if (w !== h)
+          return r.getTracks().forEach((S) => S.stop()), !1;
+        i = r;
+        const v = await f;
+        if (v) throw v;
+        return w !== h ? !1 : (s = l.createMediaStreamSource(r), a = l.createAnalyser(), a.fftSize = 4096, a.minDecibels = -90, a.maxDecibels = -15, a.smoothingTimeConstant = 0.55, y = new Uint8Array(a.frequencyBinCount), u = new Float32Array(a.fftSize), s.connect(a), r.getAudioTracks().forEach((S) => S.addEventListener("ended", () => {
+          M();
+        }, { once: !0 })), t = { status: "live", message: "Microphone on. Audio is analysed on this device; nothing is saved or uploaded." }, !0);
+      } catch (l) {
+        if (w !== h || (await A(), w !== h)) return !1;
+        const f = l && typeof l == "object" && "name" in l && typeof l.name == "string" ? l.name : "";
+        return t = f === "NotAllowedError" || f === "SecurityError" ? { status: "denied", message: "Microphone permission was not allowed. You can allow it in your browser and try again; the demo still works." } : { status: "error", message: f === "NotFoundError" ? "No microphone was found. Connect one and try again, or use the visual demo." : "The microphone could not be started. Check your device and browser permissions, then try again." }, !1;
+      }
+    })();
+    return p = F, F.finally(() => {
+      p === F && (p = null);
+    }), F;
+  }
+  function C(w) {
+    return t.status !== "live" || !a || !n ? g : Z(a, n.sampleRate, w, g, b, y, u);
+  }
+  return { start: _, stop: M, read: C, getState: () => ({ ...t }) };
+}
+function Z(o, e, t, n, i, s, a) {
+  o.getByteFrequencyData(s), o.getFloatTimeDomainData(a), xe(s, e, o.fftSize, i);
+  let y = 0;
+  for (const p of a) y += p * p;
+  const u = Math.sqrt(y / a.length), b = Math.min(1, Math.max(0, (u - 6e-3) / 0.012)), g = Math.min(0.1, Math.max(0, Number.isFinite(t) ? t : 0));
+  i.forEach((p, A) => {
+    const M = p * b, _ = M > n.bands[A] ? 0.045 : 0.23;
+    n.bands[A] += (M - n.bands[A]) * (1 - Math.exp(-g / _));
+  });
+  const h = Math.min(1, Math.max(0, (u - 6e-3) * 9));
+  return n.level += (h - n.level) * (1 - Math.exp(-g / (h > n.level ? 0.04 : 0.2))), n;
+}
+function we(o) {
+  const e = o.context.createAnalyser();
+  e.fftSize = 4096, e.minDecibels = -90, e.maxDecibels = -15, e.smoothingTimeConstant = 0.55, o.connect(e);
+  const t = { bands: new Float32Array(6), level: 0 }, n = new Float32Array(6), i = new Uint8Array(e.frequencyBinCount), s = new Float32Array(e.fftSize);
+  let a = !0;
+  return {
+    read: (y) => a ? Z(e, o.context.sampleRate, y, t, n, i, s) : t,
+    disconnect: () => {
+      if (a) {
+        a = !1;
+        try {
+          o.disconnect(e);
+        } catch {
+        }
+        t.bands.fill(0), t.level = 0;
+      }
+    }
+  };
+}
+function D(o, e, t) {
   return Math.min(t, Math.max(e, o));
 }
-function k(o, e, t, r, i = 420, l = 18) {
-  const u = E(Number.isFinite(r) ? r : 0, 0, 0.06666666666666667), b = Math.max(1, Math.ceil(u / (1 / 240))), h = u / b;
-  let T = o, _ = e;
-  for (let m = 0; m < b; m += 1)
-    _ += ((t - T) * i - _ * l) * h, T += _ * h;
-  return [T, _];
+function L(o, e, t, n, i = 420, s = 18) {
+  const a = D(Number.isFinite(n) ? n : 0, 0, 0.06666666666666667), y = Math.max(1, Math.ceil(a / (1 / 240))), u = a / y;
+  let b = o, g = e;
+  for (let h = 0; h < y; h += 1)
+    g += ((t - b) * i - g * s) * u, b += g * u;
+  return [b, g];
 }
-function he(o, e, t) {
-  const r = (o || "").trim().split(/\s+/)[0] ?? "", i = parseFloat(r);
+function _e(o, e, t) {
+  const n = (o || "").trim().split(/\s+/)[0] ?? "", i = parseFloat(n);
   if (!Number.isFinite(i) || i <= 0) return 0;
-  const l = Math.min(e, t), u = r.endsWith("%") ? i / 100 * l : i;
-  return E(u, 0, l / 2);
+  const s = Math.min(e, t), a = n.endsWith("%") ? i / 100 * s : i;
+  return D(a, 0, s / 2);
 }
-function M(o, e, t = -1 / 0, r = 1 / 0) {
+function k(o, e, t = -1 / 0, n = 1 / 0) {
   const i = parseFloat(o);
-  return Number.isFinite(i) ? E(i, t, r) : e;
+  return Number.isFinite(i) ? D(i, t, n) : e;
 }
-function ue(o) {
+function Ee(o) {
   const e = /rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:[,\s/]+([\d.]+%?))?\s*\)/.exec(o || "");
   if (!e) return null;
-  const t = e[4], r = t === void 0 ? 1 : t.endsWith("%") ? parseFloat(t) / 100 : parseFloat(t);
-  return [Number(e[1]) / 255, Number(e[2]) / 255, Number(e[3]) / 255, E(r, 0, 1)];
+  const t = e[4], n = t === void 0 ? 1 : t.endsWith("%") ? parseFloat(t) / 100 : parseFloat(t);
+  return [Number(e[1]) / 255, Number(e[2]) / 255, Number(e[3]) / 255, D(n, 0, 1)];
 }
-function de(o) {
+function Ae(o) {
   return /\.(mp4|webm|mov|m4v)(\?|#|$)/i.test(o);
 }
-const fe = [[1, 0.35, 0.12], [1, 0.18, 0.54], [0.42, 0.23, 1], [0, 0.76, 1]], pe = [0.04, 0.03, 0.12], W = document.createElement("template");
-W.innerHTML = `<style>
+const Re = [[1, 0.35, 0.12], [1, 0.18, 0.54], [0.42, 0.23, 1], [0, 0.76, 1]], Me = [0.04, 0.03, 0.12], ee = document.createElement("template");
+ee.innerHTML = `<style>
 :host { display: block; position: relative; isolation: isolate; overflow: hidden; min-height: 120px; color: #fff; background: #0a0818; }
 :host([hidden]) { display: none; }
 canvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; opacity: 0; transition: opacity .5s; }
@@ -302,44 +541,53 @@ canvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; po
 :host([data-renderer='webgl'][data-ready]) .fallback { display: none; }
 .content { position: relative; z-index: 1; height: 100%; }
 </style><div class="fallback" part="fallback"></div><canvas part="canvas" aria-hidden="true"></canvas><div class="content" part="content"><slot></slot></div>`;
-const me = `
+const Te = `
 liquid-glass [glass] { -webkit-tap-highlight-color: transparent; }
 liquid-glass [glass-drag] { touch-action: none; cursor: grab; user-select: none; }
 liquid-glass [glass-drag]:active { cursor: grabbing; }
 liquid-glass:not([data-renderer='webgl']) [glass] { background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.38); box-shadow: inset 0 1px 1px rgba(255,255,255,.6), 0 10px 30px rgba(0,0,0,.18); backdrop-filter: blur(14px) saturate(1.7); -webkit-backdrop-filter: blur(14px) saturate(1.7); }`;
-class $ extends HTMLElement {
+class te extends HTMLElement {
   constructor() {
     super();
-    c(this, "canvas");
-    c(this, "fallback");
-    c(this, "renderer", null);
-    c(this, "states", /* @__PURE__ */ new WeakMap());
-    c(this, "colorProbe", document.createElement("span"));
-    c(this, "colorCache", /* @__PURE__ */ new Map());
-    c(this, "motionQuery", window.matchMedia("(prefers-reduced-motion: reduce)"));
-    c(this, "events", null);
-    c(this, "resizeObserver", null);
-    c(this, "visibility", null);
-    c(this, "mutations", null);
-    c(this, "video", null);
-    c(this, "animatedScene", !0);
-    c(this, "sceneDirty", !0);
-    c(this, "stylesDirty", !0);
-    c(this, "onScreen", !0);
-    c(this, "frameId", 0);
-    c(this, "frameCount", 0);
-    c(this, "lastFrame", 0);
-    c(this, "time", 0);
-    c(this, "width", 1);
-    c(this, "height", 1);
-    c(this, "lastSignature", "");
-    c(this, "backdropRequest", 0);
-    c(this, "pointer", { x: 0, y: 0, inside: !1, down: !1, target: null });
-    c(this, "light", { x: 0, y: 0, present: 0, vx: 0, vy: 0, presentVelocity: 0 });
+    d(this, "canvas");
+    d(this, "fallback");
+    d(this, "renderer", null);
+    d(this, "states", /* @__PURE__ */ new WeakMap());
+    d(this, "colorProbe", document.createElement("span"));
+    d(this, "colorCache", /* @__PURE__ */ new Map());
+    d(this, "motionQuery", window.matchMedia("(prefers-reduced-motion: reduce)"));
+    d(this, "events", null);
+    d(this, "resizeObserver", null);
+    d(this, "visibility", null);
+    d(this, "mutations", null);
+    d(this, "video", null);
+    d(this, "animatedScene", !0);
+    d(this, "sceneDirty", !0);
+    d(this, "stylesDirty", !0);
+    d(this, "onScreen", !0);
+    d(this, "frameId", 0);
+    d(this, "frameCount", 0);
+    d(this, "lastFrame", 0);
+    d(this, "time", 0);
+    d(this, "width", 1);
+    d(this, "height", 1);
+    d(this, "lastSignature", "");
+    d(this, "backdropRequest", 0);
+    d(this, "pointer", { x: 0, y: 0, inside: !1, down: !1, target: null });
+    d(this, "light", { x: 0, y: 0, vx: 0, vy: 0 });
+    d(this, "bulge", { x: -1e4, y: -1e4, vx: 0, vy: 0 });
+    d(this, "microphone", null);
+    d(this, "node", null);
+    d(this, "manualAudio", null);
+    d(this, "silent", { bands: new Float32Array(6), level: 0 });
+    d(this, "demo", { bands: new Float32Array(6), level: 0 });
+    d(this, "level", 0);
+    d(this, "lastAudioStatus", "");
+    d(this, "liveSince", 0);
     const t = this.attachShadow({ mode: "open" });
-    if (t.append(W.content.cloneNode(!0)), this.canvas = t.querySelector("canvas"), this.fallback = t.querySelector(".fallback"), this.colorProbe.hidden = !0, t.append(this.colorProbe), !document.getElementById("liquid-glass-style")) {
-      const r = document.createElement("style");
-      r.id = "liquid-glass-style", r.textContent = me, document.head.append(r);
+    if (t.append(ee.content.cloneNode(!0)), this.canvas = t.querySelector("canvas"), this.fallback = t.querySelector(".fallback"), this.colorProbe.hidden = !0, t.append(this.colorProbe), !document.getElementById("liquid-glass-style")) {
+      const n = document.createElement("style");
+      n.id = "liquid-glass-style", n.textContent = Te, document.head.append(n);
     }
   }
   /** 'aurora' (default), or the URL of an image or video to refract. */
@@ -351,111 +599,163 @@ class $ extends HTMLElement {
   }
   /** The glass elements this scene renders (at most 16). */
   get panes() {
-    return Array.from(this.querySelectorAll("[glass]")).slice(0, D);
+    return Array.from(this.querySelectorAll("[glass]")).slice(0, this.renderer?.maxPanes ?? J);
+  }
+  /** The microphone's state: idle, requesting, live, denied, unavailable or error. */
+  get microphoneState() {
+    return this.mic().getState();
+  }
+  /** When the microphone went live (performance.now() time), for a recording timer. */
+  get listeningSince() {
+    return this.liveSince;
+  }
+  /** Ask for the microphone and let the glass glow with it. Call from a click or a key press. */
+  async startMicrophone() {
+    const t = this.mic().start();
+    this.syncAudio();
+    const n = await t;
+    return n && (this.liveSince = performance.now()), this.syncAudio(), n;
+  }
+  /** Stop the microphone and release the device. */
+  stopMicrophone() {
+    this.microphone && (this.microphone.stop(), this.syncAudio());
+  }
+  /** Let any Web Audio node light the glass (a player, a synth). Returns a function that stops listening. */
+  listen(t) {
+    this.node?.disconnect();
+    const n = we(t);
+    return this.node = n, () => {
+      n.disconnect(), this.node === n && (this.node = null);
+    };
+  }
+  /** Drive the glow with your own levels: six bands (low to high) and an overall level, 0 to 1. null stops. */
+  setAudio(t) {
+    if (!t) {
+      this.manualAudio = null;
+      return;
+    }
+    const n = new Float32Array(6);
+    for (let i = 0; i < 6; i += 1) n[i] = D(Number(t.bands[i]) || 0, 0, 1);
+    this.manualAudio = { bands: n, level: D(Number(t.level) || 0, 0, 1) };
+  }
+  mic() {
+    return this.microphone ?? (this.microphone = be({
+      getUserMedia: navigator.mediaDevices?.getUserMedia ? (t) => navigator.mediaDevices.getUserMedia(t) : void 0,
+      createAudioContext: typeof window.AudioContext == "function" ? () => new AudioContext() : void 0
+    })), this.microphone;
+  }
+  syncAudio() {
+    const t = this.mic().getState();
+    t.status !== this.lastAudioStatus && (this.lastAudioStatus = t.status, this.dataset.audio = t.status, this.dispatchEvent(new CustomEvent("microphone-change", { detail: t, bubbles: !0, composed: !0 })));
   }
   connectedCallback() {
     this.events = new AbortController();
     const t = this.events.signal;
     try {
-      this.renderer = ce(this.canvas), this.dataset.renderer = "webgl";
-    } catch (r) {
-      console.warn("liquid-glass: WebGL is unavailable, using frosted CSS glass.", r), this.dataset.renderer = "css";
+      this.renderer = ve(this.canvas), this.dataset.renderer = "webgl";
+    } catch (n) {
+      console.warn("liquid-glass: WebGL is unavailable, using frosted CSS glass.", n), this.dataset.renderer = "css";
     }
-    this.resizeObserver = new ResizeObserver(() => this.resize()), this.resizeObserver.observe(this), this.visibility = new IntersectionObserver(([r]) => {
-      this.onScreen = r.isIntersecting, this.onScreen ? this.start() : this.stop();
+    this.resizeObserver = new ResizeObserver(() => this.resize()), this.resizeObserver.observe(this), this.visibility = new IntersectionObserver(([n]) => {
+      this.onScreen = n.isIntersecting, this.onScreen ? this.start() : this.stop();
     }), this.visibility.observe(this), this.mutations = new MutationObserver(() => {
       this.stylesDirty = !0;
-    }), this.mutations.observe(this, { subtree: !0, childList: !0, attributes: !0 }), this.resize(), this.applyDim(), this.applyBackdrop(), this.addEventListener("pointermove", (r) => this.movePointer(r), { passive: !0, signal: t }), this.addEventListener("pointerenter", (r) => this.movePointer(r), { passive: !0, signal: t }), this.addEventListener("pointerleave", () => {
+    }), this.mutations.observe(this, { subtree: !0, childList: !0, attributes: !0 }), this.resize(), this.applyDim(), this.applyBackdrop(), this.addEventListener("pointermove", (n) => this.movePointer(n), { passive: !0, signal: t }), this.addEventListener("pointerenter", (n) => this.movePointer(n), { passive: !0, signal: t }), this.addEventListener("pointerleave", () => {
       this.pointer.inside = !1;
-    }, { signal: t }), this.addEventListener("pointerdown", (r) => this.press(r), { signal: t }), window.addEventListener("pointerup", (r) => this.release(r), { signal: t }), window.addEventListener("pointercancel", (r) => this.release(r), { signal: t }), window.addEventListener("pointermove", (r) => this.dragMove(r), { passive: !0, signal: t }), document.addEventListener("visibilitychange", () => {
-      document.hidden ? this.stop() : this.start();
-    }, { signal: t }), this.canvas.addEventListener("webglcontextlost", (r) => {
-      r.preventDefault(), this.renderer?.destroy(), this.renderer = null, this.dataset.renderer = "css";
+    }, { signal: t }), this.addEventListener("pointerdown", (n) => this.press(n), { signal: t }), window.addEventListener("pointerup", (n) => this.release(n), { signal: t }), window.addEventListener("pointercancel", (n) => this.release(n), { signal: t }), window.addEventListener("pointermove", (n) => this.dragMove(n), { passive: !0, signal: t }), document.addEventListener("visibilitychange", () => {
+      document.hidden ? (this.stop(), this.stopMicrophone()) : this.start();
+    }, { signal: t }), this.canvas.addEventListener("webglcontextlost", (n) => {
+      n.preventDefault(), this.renderer?.destroy(), this.renderer = null, this.dataset.renderer = "css";
     }, { signal: t }), this.start();
   }
   disconnectedCallback() {
-    this.stop(), this.events?.abort(), this.resizeObserver?.disconnect(), this.visibility?.disconnect(), this.mutations?.disconnect(), this.video?.pause(), this.video = null, this.renderer?.destroy(), this.renderer = null, delete this.dataset.ready;
+    this.stop(), this.events?.abort(), this.resizeObserver?.disconnect(), this.visibility?.disconnect(), this.mutations?.disconnect(), this.video?.pause(), this.video = null, this.microphone?.stop(), this.node?.disconnect(), this.node = null, this.renderer?.destroy(), this.renderer = null, delete this.dataset.ready;
   }
-  attributeChangedCallback(t, r, i) {
-    r === i || !this.isConnected || ((t === "backdrop" || t === "colors") && this.applyBackdrop(), t === "dim" && this.applyDim());
+  attributeChangedCallback(t, n, i) {
+    n === i || !this.isConnected || ((t === "backdrop" || t === "colors") && this.applyBackdrop(), t === "dim" && this.applyDim());
   }
   // ---- the backdrop
   applyBackdrop() {
-    const t = ++this.backdropRequest, r = this.backdrop.trim();
-    if (this.video?.pause(), this.video = null, r === "aurora" || !r) {
-      this.renderer?.setAurora(this.auroraColors(), pe), this.renderer?.setSource(null), this.fallback.style.removeProperty("--image"), this.animatedScene = !0, this.sceneDirty = !0, this.dataset.ready = "";
+    const t = ++this.backdropRequest, n = this.backdrop.trim();
+    if (this.video?.pause(), this.video = null, n === "aurora" || !n) {
+      this.renderer?.setAurora(this.auroraColors(), Me), this.renderer?.setSource(null), this.fallback.style.removeProperty("--image"), this.animatedScene = !0, this.sceneDirty = !0, this.dataset.ready = "";
       return;
     }
-    if (this.fallback.style.setProperty("--image", `url("${r.replace(/"/g, "%22")}")`), this.renderer?.setSource("wait"), this.sceneDirty = !0, de(r)) {
+    if (this.fallback.style.setProperty("--image", `url("${n.replace(/"/g, "%22")}")`), this.renderer?.setSource("wait"), this.sceneDirty = !0, Ae(n)) {
       const i = document.createElement("video");
-      Object.assign(i, { muted: !0, loop: !0, playsInline: !0, autoplay: !0, crossOrigin: "anonymous", src: r }), i.setAttribute("muted", ""), this.video = i, this.animatedScene = !0, i.addEventListener("playing", () => {
+      Object.assign(i, { muted: !0, loop: !0, playsInline: !0, autoplay: !0, crossOrigin: "anonymous", src: n }), i.setAttribute("muted", ""), this.video = i, this.animatedScene = !0, i.addEventListener("playing", () => {
         t === this.backdropRequest && (this.dataset.ready = "");
       }, { once: !0 }), i.play().catch(() => {
       });
       return;
     }
-    this.animatedScene = !1, ae(r).then((i) => {
+    this.animatedScene = !1, pe(n).then((i) => {
       t === this.backdropRequest && (this.renderer?.setSource(i.source, i.width, i.height), this.sceneDirty = !0, this.dataset.ready = "");
     }).catch((i) => {
-      t === this.backdropRequest && (console.warn(`liquid-glass: the backdrop "${r}" could not load (images on other sites need CORS headers). Showing the aurora.`, i), this.renderer?.setSource(null), this.animatedScene = !0, this.sceneDirty = !0, this.dataset.ready = "");
+      t === this.backdropRequest && (console.warn(`liquid-glass: the backdrop "${n}" could not load (images on other sites need CORS headers). Showing the aurora.`, i), this.renderer?.setSource(null), this.animatedScene = !0, this.sceneDirty = !0, this.dataset.ready = "");
     });
   }
   applyDim() {
-    const t = M(this.getAttribute("dim") ?? "", 0, 0, 0.9);
+    const t = k(this.getAttribute("dim") ?? "", 0, 0, 0.9);
     this.renderer?.setDim(t), this.fallback.style.filter = t ? `brightness(${1 - t})` : "", this.sceneDirty = !0;
   }
   auroraColors() {
-    const t = (this.getAttribute("colors") || "").split(/[\s,]+/).filter(Boolean).map((r) => this.resolveColor(r)).filter((r) => r[3] > 0);
-    return t.length ? t.map(([r, i, l]) => [r, i, l]) : fe;
+    const t = (this.getAttribute("colors") || "").split(/[\s,]+/).filter(Boolean).map((n) => this.resolveColor(n)).filter((n) => n[3] > 0);
+    return t.length ? t.map(([n, i, s]) => [n, i, s]) : Re;
   }
   // ---- reading the panes
   resolveColor(t) {
-    const r = this.colorCache.get(t);
-    if (r) return r;
+    const n = this.colorCache.get(t);
+    if (n) return n;
     this.colorProbe.style.color = "", this.colorProbe.style.color = t;
-    const i = (this.colorProbe.style.color ? ue(getComputedStyle(this.colorProbe).color) : null) ?? [0, 0, 0, 0];
+    const i = (this.colorProbe.style.color ? Ee(getComputedStyle(this.colorProbe).color) : null) ?? [0, 0, 0, 0];
     return this.colorCache.set(t, i), i;
   }
-  readLook(t, r, i) {
-    const l = getComputedStyle(t), u = Math.min(r, i), b = l.getPropertyValue("--glass-tint").trim();
+  readLook(t, n, i) {
+    const s = getComputedStyle(t), a = Math.min(n, i) / 2, y = s.getPropertyValue("--glass-tint").trim(), u = s.getPropertyValue("--glass-lens").trim().split(/[\s,]+/).map(Number), b = Math.min(44, Math.max(a * 0.36, Math.min(a * 0.7, 14))) * k(s.getPropertyValue("--glass-depth"), 1, 0.2, 3);
     return {
-      radius: he(l.borderTopLeftRadius, r, i),
-      bend: M(l.getPropertyValue("--glass-bend"), E(u * 0.32, 6, 34), 0, 200),
-      rim: M(l.getPropertyValue("--glass-rim"), E(u * 0.42, 8, 48), 1, 300),
-      frost: M(l.getPropertyValue("--glass-frost"), 0.08, 0, 1),
-      tint: b ? this.resolveColor(b) : [1, 1, 1, 0.04],
-      shadow: M(l.getPropertyValue("--glass-shadow"), 1, 0, 1),
-      chroma: M(l.getPropertyValue("--glass-chroma"), 0.06, 0, 0.3),
-      press: M(l.getPropertyValue("--glass-press"), 1.045, 0.8, 1.3)
+      radius: _e(s.borderTopLeftRadius, n, i),
+      frost: k(s.getPropertyValue("--glass-frost"), 0, 0, 1),
+      chroma: k(s.getPropertyValue("--glass-chroma"), 8e-3, 0, 0.1),
+      pull: k(s.getPropertyValue("--glass-pull"), Math.min(9, a * 0.3), 0, 40),
+      tint: y ? this.resolveColor(y) : [1, 1, 1, 0],
+      depth: b,
+      rounding: Math.min(b * 0.73, a * 0.9),
+      dome: b * 0.48 * k(s.getPropertyValue("--glass-dome"), 1, 0, 4),
+      ior: k(s.getPropertyValue("--glass-ior"), 1.38, 1.05, 2.4),
+      lens: u.length === 3 && u.every(Number.isFinite) ? [u[0], u[1], u[2]] : null,
+      glow: k(s.getPropertyValue("--glass-glow"), 1, 0, 2),
+      shadow: k(s.getPropertyValue("--glass-shadow"), 1, 0, 1),
+      press: k(s.getPropertyValue("--glass-press"), 1.045, 0.8, 1.3)
     };
   }
   state(t) {
-    let r = this.states.get(t);
-    return r || (r = { scale: 1, scaleVelocity: 0, glow: 0, glowVelocity: 0, stretchX: 1, stretchXVelocity: 0, stretchY: 1, stretchYVelocity: 0, look: null, drag: null, offsetX: 0, offsetY: 0 }, this.states.set(t, r)), r;
+    let n = this.states.get(t);
+    return n || (n = { scale: 1, scaleVelocity: 0, glow: 0, glowVelocity: 0, stretchX: 1, stretchXVelocity: 0, stretchY: 1, stretchYVelocity: 0, look: null, drag: null, offsetX: 0, offsetY: 0, lens: [0, 0, 0, 0], lensVelocity: [0, 0, 0, 0] }, this.states.set(t, n)), n;
   }
   // ---- pointer: light, press, drag
   movePointer(t) {
-    const r = this.getBoundingClientRect();
-    this.pointer.x = t.clientX - r.left, this.pointer.y = t.clientY - r.top, this.pointer.inside = !0;
+    const n = this.getBoundingClientRect();
+    this.pointer.x = t.clientX - n.left, this.pointer.y = t.clientY - n.top, this.pointer.inside = !0;
   }
   press(t) {
     this.movePointer(t);
-    const r = t.target?.closest?.("[glass]");
-    if (!(!r || !this.contains(r)) && (this.pointer.down = !0, this.pointer.target = r, r.hasAttribute("glass-drag"))) {
-      const i = this.state(r);
-      i.drag = { pointer: t.pointerId, startX: t.clientX, startY: t.clientY, baseX: i.offsetX, baseY: i.offsetY, lastX: t.clientX, lastY: t.clientY, lastT: t.timeStamp, vx: 0, vy: 0 }, r.setPointerCapture?.(t.pointerId);
+    const n = t.target?.closest?.("[glass]");
+    if (!(!n || !this.contains(n)) && (this.pointer.down = !0, this.pointer.target = n, n.hasAttribute("glass-drag"))) {
+      const i = this.state(n);
+      i.drag = { pointer: t.pointerId, startX: t.clientX, startY: t.clientY, baseX: i.offsetX, baseY: i.offsetY, lastX: t.clientX, lastY: t.clientY, lastT: t.timeStamp, vx: 0, vy: 0 }, n.setPointerCapture?.(t.pointerId);
     }
   }
   dragMove(t) {
-    const r = this.pointer.target, i = r ? this.states.get(r)?.drag : null;
-    if (!r || !i || i.pointer !== t.pointerId) return;
-    const l = this.state(r), u = Math.max(1, t.timeStamp - i.lastT) / 1e3;
-    i.vx = i.vx * 0.6 + (t.clientX - i.lastX) / u * 0.4, i.vy = i.vy * 0.6 + (t.clientY - i.lastY) / u * 0.4, i.lastX = t.clientX, i.lastY = t.clientY, i.lastT = t.timeStamp, l.offsetX = i.baseX + t.clientX - i.startX, l.offsetY = i.baseY + t.clientY - i.startY, r.style.translate = `${l.offsetX}px ${l.offsetY}px`;
+    const n = this.pointer.target, i = n ? this.states.get(n)?.drag : null;
+    if (!n || !i || i.pointer !== t.pointerId) return;
+    const s = this.state(n), a = Math.max(1, t.timeStamp - i.lastT) / 1e3;
+    i.vx = i.vx * 0.6 + (t.clientX - i.lastX) / a * 0.4, i.vy = i.vy * 0.6 + (t.clientY - i.lastY) / a * 0.4, i.lastX = t.clientX, i.lastY = t.clientY, i.lastT = t.timeStamp, s.offsetX = i.baseX + t.clientX - i.startX, s.offsetY = i.baseY + t.clientY - i.startY, n.style.translate = `${s.offsetX}px ${s.offsetY}px`;
   }
   release(t) {
-    const r = this.pointer.target;
-    if (r) {
-      const i = this.states.get(r);
+    const n = this.pointer.target;
+    if (n) {
+      const i = this.states.get(n);
       i?.drag && i.drag.pointer === t.pointerId && (i.drag = null);
     }
     this.pointer.down = !1, this.pointer.target = null;
@@ -466,8 +766,8 @@ class $ extends HTMLElement {
     this.width = Math.max(1, t.width), this.height = Math.max(1, t.height);
     try {
       this.renderer?.resize(this.width, this.height);
-    } catch (r) {
-      console.warn(r), this.renderer?.destroy(), this.renderer = null, this.dataset.renderer = "css";
+    } catch (n) {
+      console.warn(n), this.renderer?.destroy(), this.renderer = null, this.dataset.renderer = "css";
     }
     this.sceneDirty = !0, this.stylesDirty = !0, this.lastSignature = "";
   }
@@ -478,48 +778,73 @@ class $ extends HTMLElement {
     cancelAnimationFrame(this.frameId), this.frameId = 0;
   }
   frame(t) {
-    this.frameId = requestAnimationFrame((d) => this.frame(d));
-    const r = this.renderer;
-    if (!r) return;
-    const i = E((t - this.lastFrame) / 1e3, 0, 1 / 15);
+    this.frameId = requestAnimationFrame((l) => this.frame(l));
+    const n = this.renderer;
+    if (!n) return;
+    const i = D((t - this.lastFrame) / 1e3, 0, 1 / 15);
     this.lastFrame = t, this.frameCount += 1;
-    const l = this.motionQuery.matches || this.hasAttribute("reduce-motion"), u = this.video;
-    u && u.readyState >= 2 && (r.setSource(u, u.videoWidth, u.videoHeight), this.sceneDirty = !0), this.animatedScene && !l && (this.time += i, this.sceneDirty = !0);
-    const b = this.sceneDirty;
-    this.sceneDirty && (r.drawScene(this.time), this.sceneDirty = !1);
-    const h = this.light, T = this.pointer.inside ? this.pointer.x : this.width * 0.18, _ = this.pointer.inside ? this.pointer.y : -this.height * 0.25;
-    [h.x, h.vx] = k(h.x, h.vx, T, i, 160, 22), [h.y, h.vy] = k(h.y, h.vy, _, i, 160, 22), [h.present, h.presentVelocity] = k(h.present, h.presentVelocity, this.pointer.inside ? 1 : 0, i, 90, 18), (this.stylesDirty || this.frameCount % 30 === 0) && this.panes.forEach((d) => {
-      this.state(d).look = null;
+    const s = this.motionQuery.matches || this.hasAttribute("reduce-motion"), a = this.video;
+    a && a.readyState >= 2 && (n.setSource(a, a.videoWidth, a.videoHeight), this.sceneDirty = !0), this.animatedScene && !s && (this.time += i, this.sceneDirty = !0);
+    const y = this.sceneDirty;
+    this.sceneDirty && (n.drawScene(this.time), this.sceneDirty = !1);
+    const u = this.light, b = this.pointer.inside ? this.pointer.x - 100 : this.width * 0.18, g = this.pointer.inside ? this.pointer.y - 160 : -this.height * 0.25;
+    [u.x, u.vx] = L(u.x, u.vx, b, i, 330, 24), [u.y, u.vy] = L(u.y, u.vy, g, i, 330, 24);
+    const h = this.bulge;
+    this.pointer.inside && h.x < -5e3 && Object.assign(h, { x: this.pointer.x, y: this.pointer.y, vx: 0, vy: 0 }), !this.pointer.inside || s ? Object.assign(h, { x: -1e4, y: -1e4, vx: 0, vy: 0 }) : ([h.x, h.vx] = L(h.x, h.vx, this.pointer.x, i, 140, 9), [h.y, h.vy] = L(h.y, h.vy, this.pointer.y, i, 140, 9)), this.microphone && this.syncAudio();
+    let p = this.silent;
+    this.microphone?.getState().status === "live" ? p = this.microphone.read(i) : this.node ? p = this.node.read(i) : this.manualAudio ? p = this.manualAudio : this.hasAttribute("inner-light") && (this.demo.bands.forEach((l, f) => {
+      this.demo.bands[f] = 0.26 + Math.sin(this.time * (1.4 + f * 0.28) + f) * 0.17;
+    }), this.demo.level = Math.max(...this.demo.bands) * 0.6, p = this.demo, !this.animatedScene && !s && (this.time += i));
+    const A = p === this.demo ? 0.85 : p === this.silent ? 0 : D(p.level * 1.5, 0, 1);
+    this.level = s ? A : this.level + (A - this.level) * Math.min(i * 7, 1);
+    const M = p !== this.silent || this.level > 2e-3;
+    (this.stylesDirty || this.frameCount % 30 === 0) && this.panes.forEach((l) => {
+      this.state(l).look = null;
     }), this.stylesDirty = !1;
-    const m = this.getBoundingClientRect(), A = [];
-    let X = Math.abs(h.vx) + Math.abs(h.vy) > 0.5 || Math.abs(h.presentVelocity) > 0.01;
-    for (const d of this.panes) {
-      const f = d.getBoundingClientRect();
-      if (f.width < 1 || f.height < 1 || f.right < m.left || f.left > m.right || f.bottom < m.top || f.top > m.bottom) continue;
-      const s = this.state(d);
-      s.look ?? (s.look = this.readLook(d, f.width, f.height));
-      const v = s.look, g = this.pointer.down && this.pointer.target === d, P = this.pointer.inside && this.pointer.x >= f.left - m.left && this.pointer.x <= f.right - m.left && this.pointer.y >= f.top - m.top && this.pointer.y <= f.bottom - m.top, w = s.drag, z = g ? v.press : P ? 1 + (v.press - 1) * 0.3 : 1, C = w ? E(Math.abs(w.vx) / 2600, 0, 0.22) : 0, F = w ? E(Math.abs(w.vy) / 2600, 0, 0.22) : 0;
-      l ? Object.assign(s, { scale: z, scaleVelocity: 0, stretchX: 1, stretchY: 1, stretchXVelocity: 0, stretchYVelocity: 0, glow: g ? 1 : 0, glowVelocity: 0 }) : ([s.scale, s.scaleVelocity] = k(s.scale, s.scaleVelocity, z, i, 520, 14), [s.stretchX, s.stretchXVelocity] = k(s.stretchX, s.stretchXVelocity, 1 + C - F * 0.5, i, 300, 12), [s.stretchY, s.stretchYVelocity] = k(s.stretchY, s.stretchYVelocity, 1 + F - C * 0.5, i, 300, 12), [s.glow, s.glowVelocity] = k(s.glow, s.glowVelocity, g ? 1 : P ? 0.35 : 0, i, 260, 22)), w && (w.vx *= 0.9, w.vy *= 0.9), X || (X = Math.abs(s.scaleVelocity) + Math.abs(s.stretchXVelocity) + Math.abs(s.stretchYVelocity) + Math.abs(s.glowVelocity) > 2e-3), A.push({
-        x: f.left - m.left + f.width / 2,
-        y: f.top - m.top + f.height / 2,
-        halfWidth: f.width / 2 * s.scale * s.stretchX,
-        halfHeight: f.height / 2 * s.scale * s.stretchY,
-        radius: v.radius * s.scale,
-        bend: v.bend,
+    const _ = this.getBoundingClientRect(), C = [];
+    let w = Math.abs(u.vx) + Math.abs(u.vy) + Math.abs(h.vx) + Math.abs(h.vy) > 0.5 || M;
+    for (const l of this.panes) {
+      const f = l.getBoundingClientRect();
+      if (f.width < 1 || f.height < 1 || f.right < _.left || f.left > _.right || f.bottom < _.top || f.top > _.bottom) continue;
+      const r = this.state(l);
+      r.look ?? (r.look = this.readLook(l, f.width, f.height));
+      const v = r.look, S = this.pointer.down && this.pointer.target === l, U = this.pointer.inside && this.pointer.x >= f.left - _.left && this.pointer.x <= f.right - _.left && this.pointer.y >= f.top - _.top && this.pointer.y <= f.bottom - _.top, P = r.drag, B = S ? v.press : U ? 1 + (v.press - 1) * 0.3 : 1, q = P ? D(Math.abs(P.vx) / 2600, 0, 0.22) : 0, I = P ? D(Math.abs(P.vy) / 2600, 0, 0.22) : 0;
+      s ? Object.assign(r, { scale: B, scaleVelocity: 0, stretchX: 1, stretchY: 1, stretchXVelocity: 0, stretchYVelocity: 0, glow: S ? 1 : 0, glowVelocity: 0 }) : ([r.scale, r.scaleVelocity] = L(r.scale, r.scaleVelocity, B, i, 520, 14), [r.stretchX, r.stretchXVelocity] = L(r.stretchX, r.stretchXVelocity, 1 + q - I * 0.5, i, 300, 12), [r.stretchY, r.stretchYVelocity] = L(r.stretchY, r.stretchYVelocity, 1 + I - q * 0.5, i, 300, 12), [r.glow, r.glowVelocity] = L(r.glow, r.glowVelocity, S ? 1 : U ? 0.35 : 0, i, 260, 22)), P && (P.vx *= 0.9, P.vy *= 0.9), w || (w = Math.abs(r.scaleVelocity) + Math.abs(r.stretchXVelocity) + Math.abs(r.stretchYVelocity) + Math.abs(r.glowVelocity) > 2e-3);
+      const z = v.lens ? [v.lens[0], v.lens[1], v.lens[2], 1] : [r.lens[0], r.lens[1], r.lens[2], 0];
+      r.lens[3] === 0 && v.lens && !r.lensVelocity.some(Boolean) && (r.lens = [...z]);
+      for (let E = 0; E < 4; E += 1) {
+        if (s) {
+          r.lens[E] = z[E], r.lensVelocity[E] = 0;
+          continue;
+        }
+        [r.lens[E], r.lensVelocity[E]] = L(r.lens[E], r.lensVelocity[E], z[E], i, 330, 24);
+      }
+      w || (w = r.lensVelocity.some((E) => Math.abs(E) > 0.01)), C.push({
+        x: f.left - _.left + f.width / 2,
+        y: f.top - _.top + f.height / 2,
+        halfWidth: f.width / 2 * r.scale * r.stretchX,
+        halfHeight: f.height / 2 * r.scale * r.stretchY,
+        radius: v.radius * r.scale,
         frost: v.frost,
-        rim: v.rim,
+        chroma: v.chroma,
+        pull: v.pull,
         tint: v.tint,
-        glow: s.glow,
+        depth: v.depth,
+        rounding: v.rounding,
+        dome: v.dome,
+        ior: v.ior,
+        lens: [r.lens[0] * r.scale, r.lens[1] * r.scale, r.lens[2] * r.scale, r.lens[3]],
+        glow: v.glow,
         shadow: v.shadow,
-        chroma: v.chroma
+        press: r.glow
       });
     }
-    const R = A.map((d) => `${d.x.toFixed(1)},${d.y.toFixed(1)},${d.halfWidth.toFixed(1)},${d.halfHeight.toFixed(1)},${d.radius},${d.bend},${d.frost},${d.rim},${d.tint.join(",")}`).join("|");
-    !b && !X && R === this.lastSignature || (this.lastSignature = R, r.drawGlass(A, { x: h.x, y: h.y, present: h.present }));
+    const F = C.map((l) => `${l.x.toFixed(1)},${l.y.toFixed(1)},${l.halfWidth.toFixed(1)},${l.halfHeight.toFixed(1)},${l.radius},${l.frost},${l.depth},${l.dome},${l.tint.join(",")}`).join("|");
+    !y && !w && F === this.lastSignature || (this.lastSignature = F, n.drawGlass(C, { x: u.x, y: u.y }, { x: h.x, y: h.y }, p === this.silent ? { bands: this.silent.bands, level: this.level } : { bands: p.bands, level: this.level }));
   }
 }
-c($, "observedAttributes", ["backdrop", "colors", "dim"]);
-typeof customElements < "u" && !customElements.get("liquid-glass") && customElements.define("liquid-glass", $);
+d(te, "observedAttributes", ["backdrop", "colors", "dim", "inner-light"]);
+typeof customElements < "u" && !customElements.get("liquid-glass") && customElements.define("liquid-glass", te);
 export {
-  $ as LiquidGlassElement
+  te as LiquidGlassElement
 };

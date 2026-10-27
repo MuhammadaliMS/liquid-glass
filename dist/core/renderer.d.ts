@@ -6,13 +6,22 @@ export interface Pane {
     halfWidth: number;
     halfHeight: number;
     radius: number;
-    bend: number;
     frost: number;
-    rim: number;
+    chroma: number;
+    pull: number;
     tint: [number, number, number, number];
+    depth: number;
+    rounding: number;
+    dome: number;
+    ior: number;
+    lens: [number, number, number, number];
     glow: number;
     shadow: number;
-    chroma: number;
+    press: number;
+}
+export interface Sound {
+    bands: ArrayLike<number>;
+    level: number;
 }
 export interface GlassRenderer {
     resize: (width: number, height: number) => void;
@@ -23,11 +32,15 @@ export interface GlassRenderer {
     setDim: (dim: number) => void;
     /** Redraw the backdrop (each frame for video or the aurora, once for a still image). */
     drawScene: (time: number) => void;
+    /** How many panels this device can draw at once. */
+    maxPanes: number;
     drawGlass: (panes: Pane[], light: {
         x: number;
         y: number;
-        present: number;
-    }) => void;
+    }, pointer: {
+        x: number;
+        y: number;
+    }, sound: Sound) => void;
     destroy: () => void;
 }
 /** A three-pass WebGL renderer: backdrop into a texture, a blurred copy for frost, then all glass panels at once. */

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#0a0818" />
     <title>liquid / glass — liquid glass for any website</title>
-    <meta name="description" content="An open-source web component for liquid glass: nav bars, buttons, cards and players that bend the light behind them. One script tag, any website." />
+    <meta name="description" content="An open-source web component for real, ray-traced liquid glass: nav bars, buttons, cards and players that bend the light behind them. One script tag, any website." />
     <meta property="og:title" content="liquid / glass" />
     <meta property="og:description" content="Liquid glass for any website. One script tag. Open source." />
     <link rel="icon" type="image/svg+xml" href="site/favicon.svg" />
@@ -16,8 +16,8 @@
     <script type="module" src="liquid-glass.js"></script>
   </head>
   <body>
-    <!-- ───────────── hero: a whole site's worth of glass ───────────── -->
-    <liquid-glass id="hero" class="hero" backdrop="aurora">
+    <!-- ───────────── hero: the recorder, and a site's worth of glass around it ───────────── -->
+    <liquid-glass id="hero" class="hero" backdrop="site/backdrops/silk.webp" dim=".14" inner-light>
       <header class="topbar" glass>
         <a class="brand" href="#">
           <svg width="18" height="22" viewBox="0 0 22 27" fill="none" aria-hidden="true"><path d="M11 1C9 6 2 12 2 17a9 9 0 0 0 18 0C20 12 13 6 11 1Z" stroke="currentColor" stroke-width="1.6"/><path d="M6 17a5 5 0 0 0 5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
@@ -29,34 +29,29 @@
 
       <div class="hero-copy">
         <p class="eyebrow">AN OPEN-SOURCE WEB COMPONENT</p>
-        <h1>Liquid glass,<br />for any website.</h1>
-        <p class="sub">Nav bars, buttons, cards and players that bend the light behind them. One script tag. Your HTML.</p>
+        <h1>Liquid glass, for any website.</h1>
+        <p class="sub">Real, ray-traced glass for your nav bars, buttons, cards and players. One script tag. Your HTML.</p>
         <div class="actions">
           <a class="btn primary" glass href="#start">Get started</a>
           <a class="btn" glass href="#uses">See it in use</a>
         </div>
       </div>
 
-      <article class="player" glass aria-label="Now playing">
-        <img class="art" src="site/backdrops/paint.webp" alt="" />
-        <div class="track"><strong>Made by sound</strong><span>zerowing</span></div>
-        <div class="progress"><i></i></div>
-        <div class="controls">
-          <button type="button" aria-label="Previous"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button>
-          <button type="button" class="play" glass aria-label="Play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></button>
-          <button type="button" aria-label="Next"><svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
-        </div>
-      </article>
+      <button type="button" class="recorder" glass aria-label="Listen with the microphone" aria-pressed="false">
+        <span class="rec-mic" aria-hidden="true"><svg viewBox="0 0 28 36" fill="none"><rect x="9" y="2" width="10" height="19" rx="5" stroke="currentColor" stroke-width="2.3"/><path d="M4 16v3a10 10 0 0 0 20 0v-3M14 29v5M9 34h10" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"/><rect class="rec-red" x="11.5" y="4.5" width="5" height="10" rx="2.5" fill="#ff635c"/></svg></span>
+        <span class="rec-timer" aria-hidden="true">00:00</span>
+        <span class="rec-stop" aria-hidden="true"><i></i></span>
+      </button>
+      <p class="hint" id="hint">Tap the glass to listen · pull along its edge</p>
 
-      <div class="lens" glass glass-drag aria-hidden="true"><span>drag me</span></div>
 
       <div class="switcher" glass role="group" aria-label="Backdrop">
         <span class="switch-indicator" glass></span>
-        <button type="button" data-backdrop="aurora" class="is-on">Aurora</button>
-        <button type="button" data-backdrop="site/backdrops/paint.webp" data-dim=".32" data-busy>Paint</button>
-        <button type="button" data-backdrop="site/backdrops/tulips.webp" data-dim=".22" data-busy>Tulips</button>
-        <button type="button" data-backdrop="site/backdrops/neon.webp" data-dim=".18" data-busy>Neon</button>
-        <button type="button" data-backdrop="site/backdrops/pastel.webp" data-tone="light">Pastel</button>
+        <button type="button" data-backdrop="site/backdrops/silk.webp" data-dim=".14" class="is-on">Silk</button>
+        <button type="button" data-backdrop="site/backdrops/wallpaper.webp" data-dim="0">Ribbons</button>
+        <button type="button" data-backdrop="site/backdrops/pool.webp" data-dim=".22">Pool</button>
+        <button type="button" data-backdrop="site/backdrops/dunes.webp" data-dim=".1">Dunes</button>
+        <button type="button" data-backdrop="site/backdrops/ceramic.webp" data-dim="0" data-tone="light">Ceramic</button>
       </div>
     </liquid-glass>
 
@@ -86,7 +81,7 @@
 
         <div class="use">
           <div class="use-copy"><h3>Navigation</h3><p>A floating nav bar that stays readable over any hero image, with a search field and an avatar on the same glass.</p></div>
-          <liquid-glass class="demo busy" backdrop="site/backdrops/tulips.webp" dim=".18">
+          <liquid-glass class="demo pool" backdrop="site/backdrops/pool.webp" dim=".2">
             <div class="demo-nav" glass>
               <strong>Bloom&amp;Co</strong>
               <span class="links"><a>Shop</a><a>Stories</a><a>Visit</a></span>
@@ -98,7 +93,7 @@
 
         <div class="use">
           <div class="use-copy"><h3>Buttons &amp; controls</h3><p>Primary and secondary buttons, icon buttons, a switch and a segmented control. Tint any of them with <code>--glass-tint</code>; they swell when pressed.</p></div>
-          <liquid-glass class="demo light-ui" backdrop="site/backdrops/pastel.webp">
+          <liquid-glass class="demo light-ui" backdrop="site/backdrops/ceramic.webp">
             <div class="stack">
             <div class="controls-row">
               <button type="button" class="demo-btn tinted" glass>Book a tour</button>
@@ -118,24 +113,30 @@
         </div>
 
         <div class="use">
-          <div class="use-copy"><h3>Cards &amp; notifications</h3><p>Toasts, widgets and modals that sit over photos or video without hiding them.</p></div>
-          <liquid-glass class="demo busy" backdrop="site/backdrops/neon.webp" dim=".1">
+          <div class="use-copy"><h3>Cards &amp; players</h3><p>Notifications, toasts, widgets and media players that sit over photos or video without hiding them.</p></div>
+          <liquid-glass class="demo" backdrop="site/backdrops/wallpaper.webp">
             <div class="cards">
               <div class="notice" glass>
                 <span class="app">✦</span>
                 <div><strong>Your table is ready</strong><span>Kōji · 2 people · 8:30 pm</span></div>
                 <time>now</time>
               </div>
-              <div class="weather" glass>
-                <span>Tokyo</span><strong>18°</strong><span>Light rain · H 21° L 15°</span>
-              </div>
+              <article class="player" glass aria-label="Now playing">
+                <span class="art" aria-hidden="true"></span>
+                <div class="track"><strong>Made by sound</strong><span>zerowing</span></div>
+                <div class="controls">
+                  <button type="button" aria-label="Previous"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button>
+                  <button type="button" class="play" glass aria-label="Play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></button>
+                  <button type="button" aria-label="Next"><svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+                </div>
+              </article>
             </div>
           </liquid-glass>
         </div>
 
         <div class="use">
           <div class="use-copy"><h3>Tab bars &amp; toolbars</h3><p>The app-style bar at the bottom of a mobile site, with a glass action button beside it.</p></div>
-          <liquid-glass class="demo" backdrop="aurora" colors="#ffb020 #ff2e88 #2f6bff #19e3ff">
+          <liquid-glass class="demo" backdrop="site/backdrops/dunes.webp">
             <div class="tabbar-wrap">
               <nav class="tabbar" glass>
                 <span class="tab-indicator" glass></span>
@@ -149,8 +150,8 @@
         </div>
 
         <div class="use">
-          <div class="use-copy"><h3>A lens you can drag</h3><p>Add <code>glass-drag</code> and it follows the pointer, stretching as it moves. Turn up <code>--glass-bend</code> for a magnifier.</p></div>
-          <liquid-glass class="demo" backdrop="site/backdrops/paint.webp">
+          <div class="use-copy"><h3>A lens you can drag</h3><p>Add <code>glass-drag</code> and it follows the pointer, stretching as it moves. Turn up <code>--glass-depth</code> and <code>--glass-dome</code> for a magnifier.</p></div>
+          <liquid-glass class="demo" backdrop="site/backdrops/silk.webp">
             <div class="magnifier" glass glass-drag><span>drag</span></div>
           </liquid-glass>
         </div>
@@ -164,16 +165,21 @@
           <div class="row head"><span>On</span><span>Name</span><span>What it does</span></div>
           <div class="row"><span>&lt;liquid-glass&gt;</span><code>backdrop</code><span><code>aurora</code> (default, animated), or the URL of an image or video (<code>.mp4</code>, <code>.webm</code>). Images on another domain need CORS headers.</span></div>
           <div class="row"><span>&lt;liquid-glass&gt;</span><code>dim</code><span>Darken the backdrop (0 to 0.9) so text over it stays readable, like a scrim on a hero photo.</span></div>
+          <div class="row"><span>&lt;liquid-glass&gt;</span><code>inner-light</code><span>The glass glows in six colours on its own, as if sound were playing.</span></div>
           <div class="row"><span>&lt;liquid-glass&gt;</span><code>colors</code><span>Up to four colours for the aurora, e.g. <code>"#ff5a1f #ff2d8a #6a3bff #00c2ff"</code>.</span></div>
           <div class="row"><span>any element inside</span><code>glass</code><span>Render this element as glass. Up to 16 per scene; later ones sit on top of earlier ones.</span></div>
           <div class="row"><span>any element inside</span><code>glass-drag</code><span>Let the visitor drag it around.</span></div>
           <div class="row"><span>CSS</span><code>--glass-tint</code><span>A colour mixed into the glass; its alpha is the strength. <code>rgba(40,110,255,.5)</code> makes a blue button.</span></div>
-          <div class="row"><span>CSS</span><code>--glass-frost</code><span>0 (clear) to 1 (frosted). Default 0.08.</span></div>
-          <div class="row"><span>CSS</span><code>--glass-bend</code><span>How strongly the rim bends the backdrop, in px. Defaults to a third of the short side.</span></div>
-          <div class="row"><span>CSS</span><code>--glass-rim</code><span>How wide the curved rim is, in px.</span></div>
+          <div class="row"><span>CSS</span><code>--glass-depth</code><span>How thick the glass is, as a multiple of its natural thickness. Default 1; 2 for a heavy lens.</span></div>
+          <div class="row"><span>CSS</span><code>--glass-dome</code><span>How much the face crowns outward. Default 1; higher magnifies more.</span></div>
+          <div class="row"><span>CSS</span><code>--glass-ior</code><span>Index of refraction. Default 1.38; glass is about 1.5, water 1.33.</span></div>
+          <div class="row"><span>CSS</span><code>--glass-frost</code><span>0 (clear, default) to 1 (frosted).</span></div>
+          <div class="row"><span>CSS</span><code>--glass-pull</code><span>How far the edge bulges toward the pointer, in px. 0 turns it off.</span></div>
+          <div class="row"><span>CSS</span><code>--glass-lens</code><span>A raised disc on the face, <code>"x y radius"</code> in px from the centre, like the recorder's stop button.</span></div>
+          <div class="row"><span>CSS</span><code>--glass-glow</code><span>How much sound lights it from inside, 0 to 2. Default 1.</span></div>
           <div class="row"><span>CSS</span><code>--glass-press</code><span>How much it grows when pressed. Default 1.045; 1 turns it off.</span></div>
           <div class="row"><span>CSS</span><code>--glass-shadow</code> <span>Drop shadow strength, 0 to 1.</span></div>
-          <div class="row"><span>CSS</span><code>--glass-chroma</code><span>Colour fringing at the rim. Default 0.06.</span></div>
+          <div class="row"><span>CSS</span><code>--glass-chroma</code><span>Colour split through the glass. Default 0.008.</span></div>
         </div>
       </section>
 

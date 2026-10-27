@@ -1,0 +1,1 @@
+Aerial photograph of sand dunes at golden hour filling the whole frame: long sweeping ridges with crisp fine wind ripples, warm apricot (#f2a65a) light and deep violet-blue (#3b3f8f) shadows, strong graphic curves, sharp detail everywhere, calm and cinematic, landscape 3:2. No sky, no people, no vehicles, no text, no border.
