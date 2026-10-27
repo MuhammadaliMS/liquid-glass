@@ -8,7 +8,14 @@ const out = path.join(root, '.deploy/site');
 const glass = path.join(out, 'glass');
 fs.rmSync(out, { recursive: true, force: true });
 fs.mkdirSync(glass, { recursive: true });
-fs.copyFileSync(path.join(root, 'index.html'), path.join(glass, 'index.html'));
+// Version the page's own assets so a new deploy never pairs fresh page code with a cached script.
+const { version } = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+const stamp = `${version}-${Date.now().toString(36)}`;
+const page = fs.readFileSync(path.join(root, 'index.html'), 'utf8')
+  .replace('src="liquid-glass.js"', `src="liquid-glass.js?v=${stamp}"`)
+  .replace('href="site/site.css"', `href="site/site.css?v=${stamp}"`)
+  .replace('src="site/site.js"', `src="site/site.js?v=${stamp}"`);
+fs.writeFileSync(path.join(glass, 'index.html'), page);
 fs.cpSync(path.join(root, 'site'), path.join(glass, 'site'), { recursive: true });
 fs.copyFileSync(path.join(root, 'dist/liquid-glass.js'), path.join(glass, 'liquid-glass.js'));
 // Any site may load the script and the sample backdrops (WebGL needs CORS for images).

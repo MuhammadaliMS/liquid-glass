@@ -52,7 +52,7 @@ function placeLens() {
   recorder.style.setProperty('--glass-lens', collapsed ? `0 0 ${44 * scale}` : `${(470 / 2 - 15 - 48) * scale} 0 ${48 * scale}`);
 }
 function syncRecorder() {
-  const live = hero.microphoneState.status === 'live';
+  const live = hero.microphoneState?.status === 'live';
   recorder.classList.toggle('is-collapsed', collapsed);
   recorder.setAttribute('aria-pressed', String(live));
   recorder.setAttribute('aria-label', collapsed ? 'Open the recorder' : live ? 'Stop listening' : 'Listen with the microphone');
@@ -60,18 +60,18 @@ function syncRecorder() {
   placeLens();
 }
 recorder.addEventListener('click', async () => {
-  const state = hero.microphoneState.status;
+  const state = hero.microphoneState?.status;
   if (collapsed) { collapsed = false; syncRecorder(); return; }
   if (state === 'live' || state === 'requesting') { hero.stopMicrophone(); collapsed = true; syncRecorder(); return; }
   syncRecorder();
   const live = await hero.startMicrophone();
-  if (!live) hint.textContent = hero.microphoneState.message || 'The microphone is unavailable; the glass keeps glowing on its own.';
+  if (!live) hint.textContent = hero.microphoneState?.message || 'The microphone is unavailable; the glass keeps glowing on its own.';
   syncRecorder();
 });
 hero.addEventListener('microphone-change', syncRecorder);
 window.addEventListener('resize', placeLens);
 (function tick() {
-  const live = hero.microphoneState.status === 'live';
+  const live = hero.microphoneState?.status === 'live';
   const seconds = live ? Math.floor((performance.now() - hero.listeningSince) / 1000) : 0;
   const text = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
   if (timer.textContent !== text) timer.textContent = text;
