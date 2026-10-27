@@ -1,0 +1,49 @@
+{
+  "name": "@zerowing/liquid-glass",
+  "version": "1.0.0",
+  "description": "Liquid glass for any website: a <liquid-glass> web component that turns your nav bars, buttons, cards and players into refracting glass.",
+  "type": "module",
+  "license": "MIT",
+  "author": "zerowing (https://zerowing.in)",
+  "homepage": "https://zerowing.in/glass/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MuhammadaliMS/liquid-glass.git"
+  },
+  "keywords": [
+    "liquid glass",
+    "glassmorphism",
+    "glass",
+    "web component",
+    "custom element",
+    "webgl",
+    "refraction",
+    "ui",
+    "navbar",
+    "button"
+  ],
+  "main": "./dist/liquid-glass.js",
+  "module": "./dist/liquid-glass.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/liquid-glass.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": true,
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 5250 --strictPort",
+    "build": "tsc --noEmit && vite build && tsc -p tsconfig.types.json",
+    "build:site": "npm run build && node scripts/build-site.mjs",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "5.7.2",
+    "vite": "^6.4.1",
+    "vitest": "^5.0.5"
+  }
+}

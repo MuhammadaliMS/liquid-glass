@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0a0818" />
+    <title>liquid / glass — liquid glass for any website</title>
+    <meta name="description" content="An open-source web component for liquid glass: nav bars, buttons, cards and players that bend the light behind them. One script tag, any website." />
+    <meta property="og:title" content="liquid / glass" />
+    <meta property="og:description" content="Liquid glass for any website. One script tag. Open source." />
+    <link rel="icon" type="image/svg+xml" href="site/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300..700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="site/site.css" />
+    <script type="module" src="liquid-glass.js"></script>
+  </head>
+  <body>
+    <!-- ───────────── hero: a whole site's worth of glass ───────────── -->
+    <liquid-glass id="hero" class="hero" backdrop="aurora">
+      <header class="topbar" glass>
+        <a class="brand" href="#">
+          <svg width="18" height="22" viewBox="0 0 22 27" fill="none" aria-hidden="true"><path d="M11 1C9 6 2 12 2 17a9 9 0 0 0 18 0C20 12 13 6 11 1Z" stroke="currentColor" stroke-width="1.6"/><path d="M6 17a5 5 0 0 0 5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+          liquid<span>/glass</span>
+        </a>
+        <nav class="toplinks"><a href="#uses">Uses</a><a href="#start">Get started</a><a href="#api">API</a></nav>
+        <a class="topcta" glass href="https://github.com/MuhammadaliMS/liquid-glass" target="_blank" rel="noopener">GitHub ↗</a>
+      </header>
+
+      <div class="hero-copy">
+        <p class="eyebrow">AN OPEN-SOURCE WEB COMPONENT</p>
+        <h1>Liquid glass,<br />for any website.</h1>
+        <p class="sub">Nav bars, buttons, cards and players that bend the light behind them. One script tag. Your HTML.</p>
+        <div class="actions">
+          <a class="btn primary" glass href="#start">Get started</a>
+          <a class="btn" glass href="#uses">See it in use</a>
+        </div>
+      </div>
+
+      <article class="player" glass aria-label="Now playing">
+        <img class="art" src="site/backdrops/paint.webp" alt="" />
+        <div class="track"><strong>Made by sound</strong><span>zerowing</span></div>
+        <div class="progress"><i></i></div>
+        <div class="controls">
+          <button type="button" aria-label="Previous"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button>
+          <button type="button" class="play" glass aria-label="Play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></button>
+          <button type="button" aria-label="Next"><svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+        </div>
+      </article>
+
+      <div class="lens" glass glass-drag aria-hidden="true"><span>drag me</span></div>
+
+      <div class="switcher" glass role="group" aria-label="Backdrop">
+        <span class="switch-indicator" glass></span>
+        <button type="button" data-backdrop="aurora" class="is-on">Aurora</button>
+        <button type="button" data-backdrop="site/backdrops/paint.webp" data-dim=".32" data-busy>Paint</button>
+        <button type="button" data-backdrop="site/backdrops/tulips.webp" data-dim=".22" data-busy>Tulips</button>
+        <button type="button" data-backdrop="site/backdrops/neon.webp" data-dim=".18" data-busy>Neon</button>
+        <button type="button" data-backdrop="site/backdrops/pastel.webp" data-tone="light">Pastel</button>
+      </div>
+    </liquid-glass>
+
+    <main class="docs">
+      <!-- ───────────── get started ───────────── -->
+      <section class="block lead" id="start">
+        <p class="kicker">GET STARTED</p>
+        <h2>Wrap a section. Mark the glass.</h2>
+        <p class="lede">Put your content inside <code>&lt;liquid-glass&gt;</code> and add <code>glass</code> to anything that should be glass. Your HTML and CSS keep doing the layout; the glass follows every element's size, position and border-radius, live.</p>
+        <div class="code" data-copy>
+<pre><code><span class="t">&lt;script</span> <span class="a">type</span>=<span class="s">"module"</span> <span class="a">src</span>=<span class="s">"https://cdn.jsdelivr.net/gh/MuhammadaliMS/liquid-glass@1/dist/liquid-glass.js"</span><span class="t">&gt;&lt;/script&gt;</span>
+
+<span class="t">&lt;liquid-glass</span> <span class="a">backdrop</span>=<span class="s">"hero.jpg"</span> <span class="a">dim</span>=<span class="s">".25"</span> <span class="a">style</span>=<span class="s">"height: 100vh"</span><span class="t">&gt;</span>
+  <span class="t">&lt;nav</span> <span class="a">glass</span> <span class="a">class</span>=<span class="s">"navbar"</span><span class="t">&gt;</span>…<span class="t">&lt;/nav&gt;</span>
+  <span class="t">&lt;h1&gt;</span>Your headline<span class="t">&lt;/h1&gt;</span>
+  <span class="t">&lt;a</span> <span class="a">glass</span> <span class="a">href</span>=<span class="s">"/signup"</span> <span class="a">class</span>=<span class="s">"button"</span><span class="t">&gt;</span>Get started<span class="t">&lt;/a&gt;</span>
+<span class="t">&lt;/liquid-glass&gt;</span></code></pre>
+          <button type="button" class="copy">Copy</button>
+        </div>
+        <p class="note">Leave the glass elements' own background transparent; give them padding and a border-radius like any button or card.</p>
+      </section>
+
+      <!-- ───────────── uses ───────────── -->
+      <section class="block" id="uses">
+        <p class="kicker">WHERE IT GOES</p>
+        <h2>The parts of a site that float.</h2>
+
+        <div class="use">
+          <div class="use-copy"><h3>Navigation</h3><p>A floating nav bar that stays readable over any hero image, with a search field and an avatar on the same glass.</p></div>
+          <liquid-glass class="demo busy" backdrop="site/backdrops/tulips.webp" dim=".18">
+            <div class="demo-nav" glass>
+              <strong>Bloom&amp;Co</strong>
+              <span class="links"><a>Shop</a><a>Stories</a><a>Visit</a></span>
+              <label class="search" glass><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="m20 20-4.5-4.5"/></svg><input type="text" placeholder="Search" aria-label="Search" /></label>
+              <span class="avatar" glass>A</span>
+            </div>
+          </liquid-glass>
+        </div>
+
+        <div class="use">
+          <div class="use-copy"><h3>Buttons &amp; controls</h3><p>Primary and secondary buttons, icon buttons, a switch and a segmented control. Tint any of them with <code>--glass-tint</code>; they swell when pressed.</p></div>
+          <liquid-glass class="demo light-ui" backdrop="site/backdrops/pastel.webp">
+            <div class="stack">
+            <div class="controls-row">
+              <button type="button" class="demo-btn tinted" glass>Book a tour</button>
+              <button type="button" class="demo-btn" glass>Floor plans</button>
+              <button type="button" class="icon-btn" glass aria-label="Like"><svg viewBox="0 0 24 24"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z"/></svg></button>
+              <button type="button" class="icon-btn" glass aria-label="Share"><svg viewBox="0 0 24 24"><path d="M12 4v11M7 9l5-5 5 5M5 14v5h14v-5"/></svg></button>
+            </div>
+            <div class="controls-row">
+              <button type="button" class="toggle" glass role="switch" aria-checked="true" aria-label="Notifications"><span class="knob" glass></span></button>
+              <div class="segmented" glass role="group" aria-label="View">
+                <span class="seg-indicator" glass></span>
+                <button type="button" class="is-on">Day</button><button type="button">Week</button><button type="button">Month</button>
+              </div>
+            </div>
+            </div>
+          </liquid-glass>
+        </div>
+
+        <div class="use">
+          <div class="use-copy"><h3>Cards &amp; notifications</h3><p>Toasts, widgets and modals that sit over photos or video without hiding them.</p></div>
+          <liquid-glass class="demo busy" backdrop="site/backdrops/neon.webp" dim=".1">
+            <div class="cards">
+              <div class="notice" glass>
+                <span class="app">✦</span>
+                <div><strong>Your table is ready</strong><span>Kōji · 2 people · 8:30 pm</span></div>
+                <time>now</time>
+              </div>
+              <div class="weather" glass>
+                <span>Tokyo</span><strong>18°</strong><span>Light rain · H 21° L 15°</span>
+              </div>
+            </div>
+          </liquid-glass>
+        </div>
+
+        <div class="use">
+          <div class="use-copy"><h3>Tab bars &amp; toolbars</h3><p>The app-style bar at the bottom of a mobile site, with a glass action button beside it.</p></div>
+          <liquid-glass class="demo" backdrop="aurora" colors="#ffb020 #ff2e88 #2f6bff #19e3ff">
+            <div class="tabbar-wrap">
+              <nav class="tabbar" glass>
+                <span class="tab-indicator" glass></span>
+                <button type="button" class="is-on" aria-label="Home"><svg viewBox="0 0 24 24"><path d="M4 11 12 4l8 7v9h-5v-6H9v6H4z"/></svg>Home</button>
+                <button type="button" aria-label="Explore"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="m15 9-2 4-4 2 2-4z"/></svg>Explore</button>
+                <button type="button" aria-label="Library"><svg viewBox="0 0 24 24"><path d="M5 4v16M10 4v16M15 5l4 15"/></svg>Library</button>
+              </nav>
+              <button type="button" class="fab" glass aria-label="Search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="m20 20-4.5-4.5"/></svg></button>
+            </div>
+          </liquid-glass>
+        </div>
+
+        <div class="use">
+          <div class="use-copy"><h3>A lens you can drag</h3><p>Add <code>glass-drag</code> and it follows the pointer, stretching as it moves. Turn up <code>--glass-bend</code> for a magnifier.</p></div>
+          <liquid-glass class="demo" backdrop="site/backdrops/paint.webp">
+            <div class="magnifier" glass glass-drag><span>drag</span></div>
+          </liquid-glass>
+        </div>
+      </section>
+
+      <!-- ───────────── API ───────────── -->
+      <section class="block" id="api">
+        <p class="kicker">API</p>
+        <h2>Attributes and CSS.</h2>
+        <div class="table">
+          <div class="row head"><span>On</span><span>Name</span><span>What it does</span></div>
+          <div class="row"><span>&lt;liquid-glass&gt;</span><code>backdrop</code><span><code>aurora</code> (default, animated), or the URL of an image or video (<code>.mp4</code>, <code>.webm</code>). Images on another domain need CORS headers.</span></div>
+          <div class="row"><span>&lt;liquid-glass&gt;</span><code>dim</code><span>Darken the backdrop (0 to 0.9) so text over it stays readable, like a scrim on a hero photo.</span></div>
+          <div class="row"><span>&lt;liquid-glass&gt;</span><code>colors</code><span>Up to four colours for the aurora, e.g. <code>"#ff5a1f #ff2d8a #6a3bff #00c2ff"</code>.</span></div>
+          <div class="row"><span>any element inside</span><code>glass</code><span>Render this element as glass. Up to 16 per scene; later ones sit on top of earlier ones.</span></div>
+          <div class="row"><span>any element inside</span><code>glass-drag</code><span>Let the visitor drag it around.</span></div>
+          <div class="row"><span>CSS</span><code>--glass-tint</code><span>A colour mixed into the glass; its alpha is the strength. <code>rgba(40,110,255,.5)</code> makes a blue button.</span></div>
+          <div class="row"><span>CSS</span><code>--glass-frost</code><span>0 (clear) to 1 (frosted). Default 0.08.</span></div>
+          <div class="row"><span>CSS</span><code>--glass-bend</code><span>How strongly the rim bends the backdrop, in px. Defaults to a third of the short side.</span></div>
+          <div class="row"><span>CSS</span><code>--glass-rim</code><span>How wide the curved rim is, in px.</span></div>
+          <div class="row"><span>CSS</span><code>--glass-press</code><span>How much it grows when pressed. Default 1.045; 1 turns it off.</span></div>
+          <div class="row"><span>CSS</span><code>--glass-shadow</code> <span>Drop shadow strength, 0 to 1.</span></div>
+          <div class="row"><span>CSS</span><code>--glass-chroma</code><span>Colour fringing at the rim. Default 0.06.</span></div>
+        </div>
+      </section>
+
+      <section class="block two">
+        <div>
+          <p class="kicker">FRAMEWORKS</p>
+          <h2>Works where HTML works.</h2>
+          <p>It's a standard custom element, so React, Vue, Svelte, Astro and plain HTML all use it the same way.</p>
+        </div>
+        <div class="code" data-copy>
+<pre><code>npm install github:MuhammadaliMS/liquid-glass
+
+<span class="c">// once, anywhere in your app</span>
+<span class="k">import</span> <span class="s">'@zerowing/liquid-glass'</span>;
+
+<span class="c">// React</span>
+&lt;liquid-glass backdrop=<span class="s">"/hero.jpg"</span> style={{ height: <span class="s">'80vh'</span> }}&gt;
+  &lt;button glass=<span class="s">""</span> className=<span class="s">"cta"</span>&gt;Get started&lt;/button&gt;
+&lt;/liquid-glass&gt;</code></pre>
+          <button type="button" class="copy">Copy</button>
+        </div>
+      </section>
+
+      <section class="block notes">
+        <p class="kicker">GOOD TO KNOW</p>
+        <ul class="plain">
+          <li><strong>The glass bends its scene's backdrop.</strong> Browsers don't let WebGL read the page itself, so each <code>&lt;liquid-glass&gt;</code> draws its own backdrop (the aurora, your photo or your video) and the glass refracts that. Put it behind your hero, header or any section with a strong image.</li>
+          <li><strong>Your content stays real HTML.</strong> Links, buttons, inputs and text inside glass elements are ordinary, accessible and selectable. Only the glass is drawn.</li>
+          <li><strong>It's light on the page.</strong> One WebGL canvas per scene, idle when nothing moves, paused off-screen. Without WebGL the glass falls back to frosted CSS.</li>
+          <li><strong>MIT licensed.</strong> Use it in anything, commercial work included.</li>
+        </ul>
+      </section>
+
+      <footer class="docs-footer">
+        <span>liquid / glass · MIT · made by <a href="https://zerowing.in">zerowing</a></span>
+        <a href="https://github.com/MuhammadaliMS/liquid-glass" target="_blank" rel="noopener">Star it on GitHub ↗</a>
+      </footer>
+    </main>
+    <script type="module" src="site/site.js"></script>
+  </body>
+</html>

@@ -1,0 +1,7 @@
+node_modules
+.deploy
+deploy
+.DS_Store
+*.log
+assets-src/*.gen.log
+assets-src/*.png
