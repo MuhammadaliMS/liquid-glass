@@ -114,6 +114,8 @@ export function Hero() {
 - **It's real glass.** Each element is ray-traced as a solid slab: light refracts in, travels through, bounces inside where it can't escape, and refracts out onto the backdrop. That's why edges flip and magnify.
 - **It's light on the page.** About 16 KB gzipped. One WebGL canvas per scene, idle when nothing moves, paused off-screen and in background tabs. Up to 16 glass elements per scene (fewer on GPUs with small limits).
 - **It degrades gracefully.** Without WebGL, glass elements fall back to frosted CSS (`backdrop-filter`).
+- **It works under a strict Content Security Policy.** The component's styles are constructable stylesheets (`adoptedStyleSheets`), which CSP doesn't block, so pages and apps whose `style-src` carries a nonce or hash, like every Tauri app, need no `'unsafe-inline'` and no `::part()` workarounds. Browsers too old for `adoptedStyleSheets` get a `<style>` element instead. `npm run build && npm run test:csp` serves a check page under a nonce-only policy.
+- **A scene is at least 120px tall**, so an empty one stays visible. For a smaller scene, set `min-height: 0` along with its height.
 
 ## Develop
 

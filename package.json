@@ -39,7 +39,8 @@
     "dev": "vite --host 127.0.0.1 --port 5250 --strictPort",
     "build": "tsc --noEmit && vite build && tsc -p tsconfig.types.json",
     "build:site": "npm run build && node scripts/build-site.mjs",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:csp": "node scripts/serve-csp.mjs"
   },
   "devDependencies": {
     "typescript": "5.7.2",

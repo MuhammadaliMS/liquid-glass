@@ -6,16 +6,24 @@ import { clamp, isVideo, parseComputedColor, parseRadius, readNumber, stepSpring
 const AURORA: [number, number, number][] = [[1, 0.35, 0.12], [1, 0.18, 0.54], [0.42, 0.23, 1], [0, 0.76, 1]];
 const AURORA_BASE: [number, number, number] = [0.04, 0.03, 0.12];
 
-const template = document.createElement('template');
-template.innerHTML = `<style>
+// The scene's own styles. They are adopted as constructable stylesheets rather than written as
+// <style> elements: a Content Security Policy with a nonce or hash in style-src (every Tauri app,
+// many hardened sites) blocks runtime <style> elements, and without these rules the canvas shows at
+// its raw pixel size instead of filling the scene. Adopted sheets are not subject to CSP.
+//
+// min-height keeps an empty scene visible; a smaller scene needs `min-height: 0` (or its own
+// min-height) as well as its height.
+const SHADOW_STYLE = `
 :host { display: block; position: relative; isolation: isolate; overflow: hidden; min-height: 120px; color: #fff; background: #0a0818; }
 :host([hidden]) { display: none; }
 canvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; opacity: 0; transition: opacity .5s; }
 :host([data-ready]) canvas { opacity: 1; }
 .fallback { position: absolute; inset: 0; z-index: 0; background: var(--image, linear-gradient(120deg, #ff5a1f, #ff2d8a 35%, #6a3bff 65%, #00c2ff)) center / cover no-repeat; }
 :host([data-renderer='webgl'][data-ready]) .fallback { display: none; }
-.content { position: relative; z-index: 1; height: 100%; }
-</style><div class="fallback" part="fallback"></div><canvas part="canvas" aria-hidden="true"></canvas><div class="content" part="content"><slot></slot></div>`;
+.content { position: relative; z-index: 1; height: 100%; }`;
+
+const template = document.createElement('template');
+template.innerHTML = '<div class="fallback" part="fallback"></div><canvas part="canvas" aria-hidden="true"></canvas><div class="content" part="content"><slot></slot></div>';
 
 // Panels keep their own layout and content; without WebGL they become frosted CSS glass.
 const GLOBAL_STYLE = `
@@ -23,6 +31,45 @@ liquid-glass [glass] { -webkit-tap-highlight-color: transparent; }
 liquid-glass [glass-drag] { touch-action: none; cursor: grab; user-select: none; }
 liquid-glass [glass-drag]:active { cursor: grabbing; }
 liquid-glass:not([data-renderer='webgl']) [glass] { background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.38); box-shadow: inset 0 1px 1px rgba(255,255,255,.6), 0 10px 30px rgba(0,0,0,.18); backdrop-filter: blur(14px) saturate(1.7); -webkit-backdrop-filter: blur(14px) saturate(1.7); }`;
+
+/** A constructable stylesheet, or null where the browser can't adopt one (then a <style> is used). */
+function constructSheet(css: string): CSSStyleSheet | null {
+  if (!('adoptedStyleSheets' in Document.prototype) || !('replaceSync' in CSSStyleSheet.prototype)) return null;
+  try {
+    const sheet = new CSSStyleSheet();
+    sheet.replaceSync(css);
+    return sheet;
+  } catch {
+    return null;
+  }
+}
+
+let shadowSheet: CSSStyleSheet | null | undefined;
+let globalSheet: CSSStyleSheet | null | undefined;
+
+function adoptShadowStyle(root: ShadowRoot): void {
+  if (shadowSheet === undefined) shadowSheet = constructSheet(SHADOW_STYLE);
+  if (shadowSheet) {
+    root.adoptedStyleSheets = [...root.adoptedStyleSheets, shadowSheet];
+    return;
+  }
+  const style = document.createElement('style');
+  style.textContent = SHADOW_STYLE;
+  root.prepend(style);
+}
+
+function adoptGlobalStyle(): void {
+  if (globalSheet === undefined) globalSheet = constructSheet(GLOBAL_STYLE);
+  if (globalSheet) {
+    if (!document.adoptedStyleSheets.includes(globalSheet)) document.adoptedStyleSheets = [...document.adoptedStyleSheets, globalSheet];
+    return;
+  }
+  if (document.getElementById('liquid-glass-style')) return;
+  const style = document.createElement('style');
+  style.id = 'liquid-glass-style';
+  style.textContent = GLOBAL_STYLE;
+  document.head.append(style);
+}
 
 interface Look {
   radius: number; frost: number; chroma: number; pull: number; tint: [number, number, number, number];
@@ -88,17 +135,13 @@ export class LiquidGlassElement extends HTMLElement {
   constructor() {
     super();
     const root = this.attachShadow({ mode: 'open' });
+    adoptShadowStyle(root);
     root.append(template.content.cloneNode(true));
     this.canvas = root.querySelector('canvas')!;
     this.fallback = root.querySelector('.fallback')!;
     this.colorProbe.hidden = true;
     root.append(this.colorProbe);
-    if (!document.getElementById('liquid-glass-style')) {
-      const style = document.createElement('style');
-      style.id = 'liquid-glass-style';
-      style.textContent = GLOBAL_STYLE;
-      document.head.append(style);
-    }
+    adoptGlobalStyle();
   }
 
   /** 'aurora' (default), or the URL of an image or video to refract. */

@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>liquid-glass under a strict CSP</title>
+<!-- Served by scripts/serve-csp.mjs with a nonce-only style-src, the way Tauri serves its pages.
+     The style below carries the nonce; the one after it doesn't, and must be blocked. -->
+<style nonce="{{nonce}}">
+  body { margin: 0; padding: 24px; font: 14px/1.4 system-ui, sans-serif; background: #f3f1ec; color: #1d1b16; }
+  liquid-glass, #report { margin-bottom: 16px; }
+  .small { height: 54px; min-height: 0; width: 220px; border-radius: 27px; }
+  .wide { height: 240px; }
+  .pill { display: block; margin: 9px; height: 36px; border-radius: 18px; }
+  .card { display: block; margin: 40px; width: 260px; height: 120px; border-radius: 24px; }
+  #report { white-space: pre; font: 12px/1.5 ui-monospace, monospace; }
+  .pass { color: #0a7d32; } .fail { color: #b3261e; }
+</style>
+<style>#csp-probe { width: 123px; }</style>
+</head>
+<body>
+<div id="csp-probe"></div>
+
+<liquid-glass class="small" id="small">
+  <span class="pill" glass></span>
+</liquid-glass>
+
+<liquid-glass class="wide" id="wide">
+  <span class="card" glass></span>
+</liquid-glass>
+
+<liquid-glass id="auto"></liquid-glass>
+
+<div id="report">checking…</div>
+
+<script type="module" nonce="{{nonce}}" src="/dist/liquid-glass.js"></script>
+<script type="module" nonce="{{nonce}}">
+  // The check: every scene's canvas covers exactly its host, whatever its size, with no page-side
+  // ::part() styling. Before constructable stylesheets the canvas stayed at its backing-store size
+  // (up to 1.5x the host), so the glass was drawn offset and oversized.
+  const report = document.getElementById('report');
+  const close = (a, b) => Math.abs(a - b) < 0.5;
+  const rect = (el) => { const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; };
+
+  async function run() {
+    await customElements.whenDefined('liquid-glass');
+    // Wait for every scene to be laid out and to have sized its canvas (a hidden or resizing
+    // window can report 0px for a moment).
+    const hosts = [...document.querySelectorAll('liquid-glass')];
+    const settled = () => hosts.every((host) => host.getBoundingClientRect().width > 0 && host.shadowRoot.querySelector('canvas').width > 2);
+    for (let i = 0; i < 50 && !settled(); i += 1) await new Promise((resolve) => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    const blocked = document.getElementById('csp-probe').getBoundingClientRect().width !== 123;
+    const lines = [`csp active (unnonced <style> blocked): ${blocked}`];
+    let ok = blocked;
+    for (const host of hosts) {
+      const canvas = host.shadowRoot.querySelector('canvas');
+      const h = rect(host), c = rect(canvas);
+      const fits = h.w > 0 && h.h > 0 && close(h.x, c.x) && close(h.y, c.y) && close(h.w, c.w) && close(h.h, c.h);
+      ok &&= fits;
+      lines.push(`#${host.id}: host ${h.w}x${h.h} @${h.x},${h.y}  canvas ${c.w}x${c.h} @${c.x},${c.y}  backing ${canvas.width}x${canvas.height}  ${fits ? 'ok' : 'MISMATCH'}`);
+    }
+    const auto = document.getElementById('auto').getBoundingClientRect().height;
+    lines.push(`#auto (no height set) is ${auto}px tall: min-height ${auto === 120 ? 'applied' : 'MISSING'}`);
+    ok &&= auto === 120;
+    lines.unshift(ok ? 'PASS' : 'FAIL');
+    report.textContent = lines.join('\n');
+    report.className = ok ? 'pass' : 'fail';
+    document.title = ok ? 'PASS' : 'FAIL';
+    window.cspResult = { ok, lines };
+  }
+  run();
+</script>
+</body>
+</html>

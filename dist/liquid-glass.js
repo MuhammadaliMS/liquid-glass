@@ -1,7 +1,7 @@
-var ce = Object.defineProperty;
-var ue = (o, e, t) => e in o ? ce(o, e, { enumerable: !0, configurable: !0, writable: !0, value: t }) : o[e] = t;
-var d = (o, e, t) => ue(o, typeof e != "symbol" ? e + "" : e, t);
-const de = `precision highp float;
+var me = Object.defineProperty;
+var pe = (o, e, t) => e in o ? me(o, e, { enumerable: !0, configurable: !0, writable: !0, value: t }) : o[e] = t;
+var d = (o, e, t) => pe(o, typeof e != "symbol" ? e + "" : e, t);
+const ge = `precision highp float;
 // The backdrop the glass bends: an image or video cropped to cover, or the built-in aurora.
 uniform vec2 u_size;      // CSS pixels
 uniform float u_dpr;
@@ -61,7 +61,7 @@ void main() {
   else color = u_base;
   gl_FragColor = vec4(color * (1.0 - u_dim), 1.0);
 }
-`, he = `precision highp float;
+`, ve = `precision highp float;
 uniform sampler2D u_background;
 uniform vec2 u_size;
 uniform vec2 u_step;
@@ -87,7 +87,7 @@ void main() {
   color /= total;
   gl_FragColor = vec4(pow(color, vec3(1.0 / 2.2)), 1.0);
 }
-`, fe = `precision highp float;
+`, ye = `precision highp float;
 // Every glass panel on the scene as a real solid of glass. Each panel is a rounded slab with
 // a domed crown and rounded edges, ray-traced from a camera straight in front of it: light
 // refracts into the slab, travels through it (bouncing inside when it can't get out), refracts
@@ -316,44 +316,44 @@ void main() {
   gl_FragColor = vec4(pow(max(color, vec3(0.0)), vec3(1.0 / 2.2)), 1.0);
 }
 `;
-function me(o, e, t, n) {
+function be(o, e, t, n) {
   if (![o, e, t, n].every((u) => Number.isFinite(u) && u > 0))
     throw new RangeError("Backdrop dimensions must be finite and positive.");
-  const i = o / e, s = t / n, a = Math.min(1, i / s), y = Math.min(1, s / i);
+  const r = o / e, s = t / n, a = Math.min(1, r / s), y = Math.min(1, s / r);
   return [a, y, (1 - a) / 2, (1 - y) / 2];
 }
-function pe(o, e = () => new Image()) {
+function xe(o, e = () => new Image()) {
   return new Promise((t, n) => {
-    const i = e();
-    i.decoding = "async", i.crossOrigin = "anonymous", i.onload = () => {
-      if (i.onload = null, i.onerror = null, i.naturalWidth <= 0 || i.naturalHeight <= 0) {
+    const r = e();
+    r.decoding = "async", r.crossOrigin = "anonymous", r.onload = () => {
+      if (r.onload = null, r.onerror = null, r.naturalWidth <= 0 || r.naturalHeight <= 0) {
         n(new Error("The backdrop image has invalid image dimensions."));
         return;
       }
-      t({ source: i, width: i.naturalWidth, height: i.naturalHeight });
-    }, i.onerror = () => {
-      i.onload = null, i.onerror = null, n(new Error("The backdrop image could not load; the procedural scene remains available."));
-    }, i.src = o;
+      t({ source: r, width: r.naturalWidth, height: r.naturalHeight });
+    }, r.onerror = () => {
+      r.onload = null, r.onerror = null, n(new Error("The backdrop image could not load; the procedural scene remains available."));
+    }, r.src = o;
   });
 }
-const J = 16, ge = "attribute vec2 a_position; void main() { gl_Position = vec4(a_position, 0.0, 1.0); }";
-function ve(o) {
+const ne = 16, we = "attribute vec2 a_position; void main() { gl_Position = vec4(a_position, 0.0, 1.0); }";
+function _e(o) {
   const e = o.getContext("webgl", { alpha: !1, antialias: !1, premultipliedAlpha: !1, powerPreference: "low-power" });
   if (!e) throw new Error("WebGL is unavailable.");
   const t = [], n = [];
-  function i(c, m) {
-    const x = e.createShader(c);
-    if (!x) throw new Error("Unable to allocate a glass shader.");
-    if (e.shaderSource(x, m), e.compileShader(x), !e.getShaderParameter(x, e.COMPILE_STATUS)) {
-      const N = e.getShaderInfoLog(x);
-      throw e.deleteShader(x), new Error(`Glass shader failed: ${N}`);
+  function r(c, m) {
+    const b = e.createShader(c);
+    if (!b) throw new Error("Unable to allocate a glass shader.");
+    if (e.shaderSource(b, m), e.compileShader(b), !e.getShaderParameter(b, e.COMPILE_STATUS)) {
+      const N = e.getShaderInfoLog(b);
+      throw e.deleteShader(b), new Error(`Glass shader failed: ${N}`);
     }
-    return t.push(x), x;
+    return t.push(b), b;
   }
   function s(c) {
     const m = e.createProgram();
     if (!m) throw new Error("Unable to allocate the glass renderer.");
-    if (e.attachShader(m, i(e.VERTEX_SHADER, ge)), e.attachShader(m, i(e.FRAGMENT_SHADER, c)), e.linkProgram(m), !e.getProgramParameter(m, e.LINK_STATUS)) throw new Error(`Glass renderer failed to link: ${e.getProgramInfoLog(m)}`);
+    if (e.attachShader(m, r(e.VERTEX_SHADER, we)), e.attachShader(m, r(e.FRAGMENT_SHADER, c)), e.linkProgram(m), !e.getProgramParameter(m, e.LINK_STATUS)) throw new Error(`Glass renderer failed to link: ${e.getProgramInfoLog(m)}`);
     return n.push(m), m;
   }
   function a() {
@@ -361,80 +361,80 @@ function ve(o) {
     if (!c) throw new Error("Unable to allocate a glass texture.");
     return e.bindTexture(e.TEXTURE_2D, c), e.texParameteri(e.TEXTURE_2D, e.TEXTURE_MIN_FILTER, e.LINEAR), e.texParameteri(e.TEXTURE_2D, e.TEXTURE_MAG_FILTER, e.LINEAR), e.texParameteri(e.TEXTURE_2D, e.TEXTURE_WRAP_S, e.CLAMP_TO_EDGE), e.texParameteri(e.TEXTURE_2D, e.TEXTURE_WRAP_T, e.CLAMP_TO_EDGE), e.texImage2D(e.TEXTURE_2D, 0, e.RGBA, 1, 1, 0, e.RGBA, e.UNSIGNED_BYTE, new Uint8Array([20, 24, 40, 255])), c;
   }
-  const y = s(de), u = s(he), b = Number(e.getParameter(e.MAX_FRAGMENT_UNIFORM_VECTORS)) || 64, g = Math.max(2, Math.min(J, Math.floor((b - 16) / 6))), h = s(`#define MAX_PANES ${g}
-${fe}`), p = e.createBuffer(), A = a(), M = a(), _ = a(), C = e.createFramebuffer(), w = e.createFramebuffer();
+  const y = s(ge), u = s(ve), x = Number(e.getParameter(e.MAX_FRAGMENT_UNIFORM_VECTORS)) || 64, g = Math.max(2, Math.min(ne, Math.floor((x - 16) / 6))), h = s(`#define MAX_PANES ${g}
+${ye}`), p = e.createBuffer(), A = a(), R = a(), _ = a(), C = e.createFramebuffer(), w = e.createFramebuffer();
   if (!p || !C || !w) throw new Error("Unable to allocate glass buffers.");
   e.bindBuffer(e.ARRAY_BUFFER, p), e.bufferData(e.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), e.STATIC_DRAW);
-  const F = (c, m) => Object.fromEntries(m.map((x) => [x, e.getUniformLocation(c, x)])), l = F(y, ["u_size", "u_dpr", "u_mode", "u_image", "u_crop", "u_time", "u_colors[0]", "u_base", "u_dim"]), f = F(u, ["u_background", "u_size", "u_step"]), r = F(h, ["u_scene", "u_frost", "u_size", "u_dpr", "u_count", "u_rect[0]", "u_look[0]", "u_tint[0]", "u_profile[0]", "u_lens[0]", "u_extra[0]", "u_light", "u_pointer", "u_bands[0]", "u_level"]), v = new Float32Array(g * 4), S = new Float32Array(g * 4), U = new Float32Array(g * 4), P = new Float32Array(g * 4), B = new Float32Array(g * 4), q = new Float32Array(g * 4), I = new Float32Array(6);
-  let z = 1, E = 1, X = 1, G = !1, V = !1, W = 1, $ = 0, Y = { width: 1, height: 1 }, H = new Float32Array([1, 0.35, 0.12, 1, 0.18, 0.54, 0.42, 0.23, 1, 0, 0.76, 1]), Q = new Float32Array([0.04, 0.03, 0.12]);
-  function O(c) {
+  const T = (c, m) => Object.fromEntries(m.map((b) => [b, e.getUniformLocation(c, b)])), l = T(y, ["u_size", "u_dpr", "u_mode", "u_image", "u_crop", "u_time", "u_colors[0]", "u_base", "u_dim"]), f = T(u, ["u_background", "u_size", "u_step"]), i = T(h, ["u_scene", "u_frost", "u_size", "u_dpr", "u_count", "u_rect[0]", "u_look[0]", "u_tint[0]", "u_profile[0]", "u_lens[0]", "u_extra[0]", "u_light", "u_pointer", "u_bands[0]", "u_level"]), v = new Float32Array(g * 4), F = new Float32Array(g * 4), U = new Float32Array(g * 4), P = new Float32Array(g * 4), B = new Float32Array(g * 4), q = new Float32Array(g * 4), I = new Float32Array(6);
+  let L = 1, E = 1, X = 1, O = !1, G = !1, H = 1, Q = 0, W = { width: 1, height: 1 }, j = new Float32Array([1, 0.35, 0.12, 1, 0.18, 0.54, 0.42, 0.23, 1, 0, 0.76, 1]), K = new Float32Array([0.04, 0.03, 0.12]);
+  function $(c) {
     e.useProgram(c), e.bindBuffer(e.ARRAY_BUFFER, p);
     const m = e.getAttribLocation(c, "a_position");
     e.enableVertexAttribArray(m), e.vertexAttribPointer(m, 2, e.FLOAT, !1, 0, 0);
   }
-  function j(c, m, x, N) {
-    if (e.bindTexture(e.TEXTURE_2D, m), e.texImage2D(e.TEXTURE_2D, 0, e.RGBA, x, N, 0, e.RGBA, e.UNSIGNED_BYTE, null), e.bindFramebuffer(e.FRAMEBUFFER, c), e.framebufferTexture2D(e.FRAMEBUFFER, e.COLOR_ATTACHMENT0, e.TEXTURE_2D, m, 0), e.checkFramebufferStatus(e.FRAMEBUFFER) !== e.FRAMEBUFFER_COMPLETE) throw new Error("A glass framebuffer is incomplete.");
+  function J(c, m, b, N) {
+    if (e.bindTexture(e.TEXTURE_2D, m), e.texImage2D(e.TEXTURE_2D, 0, e.RGBA, b, N, 0, e.RGBA, e.UNSIGNED_BYTE, null), e.bindFramebuffer(e.FRAMEBUFFER, c), e.framebufferTexture2D(e.FRAMEBUFFER, e.COLOR_ATTACHMENT0, e.TEXTURE_2D, m, 0), e.checkFramebufferStatus(e.FRAMEBUFFER) !== e.FRAMEBUFFER_COMPLETE) throw new Error("A glass framebuffer is incomplete.");
   }
-  function ne(c, m) {
-    z = Math.max(1, c), E = Math.max(1, m), X = Math.min(window.devicePixelRatio || 1, 1.5), o.width = Math.round(z * X), o.height = Math.round(E * X), j(C, M, o.width, o.height), j(w, _, Math.max(1, Math.ceil(o.width / 4)), Math.max(1, Math.ceil(o.height / 4))), e.bindFramebuffer(e.FRAMEBUFFER, null), G = !0;
+  function ae(c, m) {
+    L = Math.max(1, c), E = Math.max(1, m), X = Math.min(window.devicePixelRatio || 1, 1.5), o.width = Math.round(L * X), o.height = Math.round(E * X), J(C, R, o.width, o.height), J(w, _, Math.max(1, Math.ceil(o.width / 4)), Math.max(1, Math.ceil(o.height / 4))), e.bindFramebuffer(e.FRAMEBUFFER, null), O = !0;
   }
-  function ie(c, m = 1, x = 1) {
-    W = c === "wait" ? 2 : c ? 0 : 1, !(!c || c === "wait") && (Y = { width: Math.max(1, m), height: Math.max(1, x) }, e.bindTexture(e.TEXTURE_2D, A), e.pixelStorei(e.UNPACK_FLIP_Y_WEBGL, !0), e.texImage2D(e.TEXTURE_2D, 0, e.RGBA, e.RGBA, e.UNSIGNED_BYTE, c), e.pixelStorei(e.UNPACK_FLIP_Y_WEBGL, !1));
+  function le(c, m = 1, b = 1) {
+    H = c === "wait" ? 2 : c ? 0 : 1, !(!c || c === "wait") && (W = { width: Math.max(1, m), height: Math.max(1, b) }, e.bindTexture(e.TEXTURE_2D, A), e.pixelStorei(e.UNPACK_FLIP_Y_WEBGL, !0), e.texImage2D(e.TEXTURE_2D, 0, e.RGBA, e.RGBA, e.UNSIGNED_BYTE, c), e.pixelStorei(e.UNPACK_FLIP_Y_WEBGL, !1));
   }
-  function re(c, m) {
-    H = new Float32Array(Array.from({ length: 4 }, (x, N) => c[N % c.length]).flat()), Q = new Float32Array(m);
+  function ce(c, m) {
+    j = new Float32Array(Array.from({ length: 4 }, (b, N) => c[N % c.length]).flat()), K = new Float32Array(m);
   }
-  function oe(c) {
-    $ = Math.min(0.9, Math.max(0, Number.isFinite(c) ? c : 0));
+  function ue(c) {
+    Q = Math.min(0.9, Math.max(0, Number.isFinite(c) ? c : 0));
   }
-  function se(c) {
-    if (V || !G) return;
-    e.bindFramebuffer(e.FRAMEBUFFER, C), e.viewport(0, 0, o.width, o.height), O(y), e.activeTexture(e.TEXTURE0), e.bindTexture(e.TEXTURE_2D, A), e.uniform1i(l.u_image, 0), e.uniform2f(l.u_size, z, E), e.uniform1f(l.u_dpr, X), e.uniform1f(l.u_mode, W), e.uniform4f(l.u_crop, ...me(z, E, Y.width, Y.height)), e.uniform1f(l.u_time, c), e.uniform3fv(l["u_colors[0]"], H), e.uniform3fv(l.u_base, Q), e.uniform1f(l.u_dim, $), e.drawArrays(e.TRIANGLES, 0, 3);
-    const m = Math.max(1, Math.ceil(o.width / 4)), x = Math.max(1, Math.ceil(o.height / 4));
-    e.bindFramebuffer(e.FRAMEBUFFER, w), e.viewport(0, 0, m, x), O(u), e.bindTexture(e.TEXTURE_2D, M), e.uniform1i(f.u_background, 0), e.uniform2f(f.u_size, m, x), e.uniform2f(f.u_step, 5 * X / o.width, 5 * X / o.height), e.drawArrays(e.TRIANGLES, 0, 3), e.bindFramebuffer(e.FRAMEBUFFER, null);
+  function de(c) {
+    if (G || !O) return;
+    e.bindFramebuffer(e.FRAMEBUFFER, C), e.viewport(0, 0, o.width, o.height), $(y), e.activeTexture(e.TEXTURE0), e.bindTexture(e.TEXTURE_2D, A), e.uniform1i(l.u_image, 0), e.uniform2f(l.u_size, L, E), e.uniform1f(l.u_dpr, X), e.uniform1f(l.u_mode, H), e.uniform4f(l.u_crop, ...be(L, E, W.width, W.height)), e.uniform1f(l.u_time, c), e.uniform3fv(l["u_colors[0]"], j), e.uniform3fv(l.u_base, K), e.uniform1f(l.u_dim, Q), e.drawArrays(e.TRIANGLES, 0, 3);
+    const m = Math.max(1, Math.ceil(o.width / 4)), b = Math.max(1, Math.ceil(o.height / 4));
+    e.bindFramebuffer(e.FRAMEBUFFER, w), e.viewport(0, 0, m, b), $(u), e.bindTexture(e.TEXTURE_2D, R), e.uniform1i(f.u_background, 0), e.uniform2f(f.u_size, m, b), e.uniform2f(f.u_step, 5 * X / o.width, 5 * X / o.height), e.drawArrays(e.TRIANGLES, 0, 3), e.bindFramebuffer(e.FRAMEBUFFER, null);
   }
-  function ae(c, m, x, N) {
-    if (V || !G) return;
-    const K = Math.min(g, c.length);
-    for (let T = 0; T < K; T += 1) {
-      const R = c[T];
-      v.set([R.x, R.y, R.halfWidth, R.halfHeight], T * 4), S.set([R.radius, R.frost, R.chroma, R.pull], T * 4), U.set(R.tint, T * 4), P.set([R.depth, R.rounding, R.dome, R.ior], T * 4), B.set(R.lens, T * 4), q.set([R.glow, R.shadow, R.press, 0], T * 4);
+  function he(c, m, b, N) {
+    if (G || !O) return;
+    const Z = Math.min(g, c.length);
+    for (let M = 0; M < Z; M += 1) {
+      const S = c[M];
+      v.set([S.x, S.y, S.halfWidth, S.halfHeight], M * 4), F.set([S.radius, S.frost, S.chroma, S.pull], M * 4), U.set(S.tint, M * 4), P.set([S.depth, S.rounding, S.dome, S.ior], M * 4), B.set(S.lens, M * 4), q.set([S.glow, S.shadow, S.press, 0], M * 4);
     }
-    for (let T = 0; T < 6; T += 1) I[T] = Number(N.bands[T]) || 0;
-    e.bindFramebuffer(e.FRAMEBUFFER, null), e.viewport(0, 0, o.width, o.height), O(h), e.activeTexture(e.TEXTURE0), e.bindTexture(e.TEXTURE_2D, M), e.activeTexture(e.TEXTURE1), e.bindTexture(e.TEXTURE_2D, _), e.uniform1i(r.u_scene, 0), e.uniform1i(r.u_frost, 1), e.uniform2f(r.u_size, z, E), e.uniform1f(r.u_dpr, X), e.uniform1i(r.u_count, K), e.uniform4fv(r["u_rect[0]"], v), e.uniform4fv(r["u_look[0]"], S), e.uniform4fv(r["u_tint[0]"], U), e.uniform4fv(r["u_profile[0]"], P), e.uniform4fv(r["u_lens[0]"], B), e.uniform4fv(r["u_extra[0]"], q), e.uniform2f(r.u_light, m.x, m.y), e.uniform2f(r.u_pointer, x.x, x.y), e.uniform1fv(r["u_bands[0]"], I), e.uniform1f(r.u_level, Math.min(1, Math.max(0, N.level))), e.drawArrays(e.TRIANGLES, 0, 3), e.activeTexture(e.TEXTURE0);
+    for (let M = 0; M < 6; M += 1) I[M] = Number(N.bands[M]) || 0;
+    e.bindFramebuffer(e.FRAMEBUFFER, null), e.viewport(0, 0, o.width, o.height), $(h), e.activeTexture(e.TEXTURE0), e.bindTexture(e.TEXTURE_2D, R), e.activeTexture(e.TEXTURE1), e.bindTexture(e.TEXTURE_2D, _), e.uniform1i(i.u_scene, 0), e.uniform1i(i.u_frost, 1), e.uniform2f(i.u_size, L, E), e.uniform1f(i.u_dpr, X), e.uniform1i(i.u_count, Z), e.uniform4fv(i["u_rect[0]"], v), e.uniform4fv(i["u_look[0]"], F), e.uniform4fv(i["u_tint[0]"], U), e.uniform4fv(i["u_profile[0]"], P), e.uniform4fv(i["u_lens[0]"], B), e.uniform4fv(i["u_extra[0]"], q), e.uniform2f(i.u_light, m.x, m.y), e.uniform2f(i.u_pointer, b.x, b.y), e.uniform1fv(i["u_bands[0]"], I), e.uniform1f(i.u_level, Math.min(1, Math.max(0, N.level))), e.drawArrays(e.TRIANGLES, 0, 3), e.activeTexture(e.TEXTURE0);
   }
-  function le() {
-    V || (V = !0, t.forEach((c) => e.deleteShader(c)), n.forEach((c) => e.deleteProgram(c)), [A, M, _].forEach((c) => e.deleteTexture(c)), e.deleteFramebuffer(C), e.deleteFramebuffer(w), e.deleteBuffer(p), e.getExtension("WEBGL_lose_context")?.loseContext());
+  function fe() {
+    G || (G = !0, t.forEach((c) => e.deleteShader(c)), n.forEach((c) => e.deleteProgram(c)), [A, R, _].forEach((c) => e.deleteTexture(c)), e.deleteFramebuffer(C), e.deleteFramebuffer(w), e.deleteBuffer(p), e.getExtension("WEBGL_lose_context")?.loseContext());
   }
-  return { resize: ne, setSource: ie, setAurora: re, setDim: oe, drawScene: se, drawGlass: ae, destroy: le, maxPanes: g };
+  return { resize: ae, setSource: le, setAurora: ce, setDim: ue, drawScene: de, drawGlass: he, destroy: fe, maxPanes: g };
 }
-const ye = [[30, 120], [120, 300], [300, 700], [700, 1600], [1600, 4e3], [4e3, 1e4]];
-function xe(o, e, t, n = new Float32Array(6)) {
+const Ee = [[30, 120], [120, 300], [300, 700], [700, 1600], [1600, 4e3], [4e3, 1e4]];
+function Ae(o, e, t, n = new Float32Array(6)) {
   if (!Number.isFinite(e) || e <= 0 || !Number.isInteger(t) || t < 32 || t > 32768 || (t & t - 1) !== 0 || o.length !== t / 2 || n.length < 6)
     throw new RangeError("Audio analysis needs a valid sample rate, power-of-two FFT and matching spectrum.");
-  const i = e / t;
-  return ye.forEach(([s, a], y) => {
-    const u = Math.max(1, Math.ceil(s / i)), b = Math.min(o.length, Math.ceil(a / i));
+  const r = e / t;
+  return Ee.forEach(([s, a], y) => {
+    const u = Math.max(1, Math.ceil(s / r)), x = Math.min(o.length, Math.ceil(a / r));
     let g = 0, h = 0;
-    for (let A = u; A < b; A += 1) {
-      const M = o[A] / 255;
-      g += M * M, h = Math.max(h, M);
+    for (let A = u; A < x; A += 1) {
+      const R = o[A] / 255;
+      g += R * R, h = Math.max(h, R);
     }
-    const p = b > u ? Math.sqrt(g / (b - u)) : 0;
+    const p = x > u ? Math.sqrt(g / (x - u)) : 0;
     n[y] = Math.min(1, (p * 0.4 + h * 0.6) * 1.3);
   }), n;
 }
-function be(o) {
+function Se(o) {
   const e = !!o.getUserMedia && !!o.createAudioContext;
-  let t = { status: e ? "idle" : "unavailable", message: e ? "" : "Microphone analysis is not supported in this browser. The visual demo still works." }, n = null, i = null, s = null, a = null, y = new Uint8Array(0), u = new Float32Array(0);
-  const b = new Float32Array(6), g = { bands: new Float32Array(6), level: 0 };
+  let t = { status: e ? "idle" : "unavailable", message: e ? "" : "Microphone analysis is not supported in this browser. The visual demo still works." }, n = null, r = null, s = null, a = null, y = new Uint8Array(0), u = new Float32Array(0);
+  const x = new Float32Array(6), g = { bands: new Float32Array(6), level: 0 };
   let h = 0, p = null;
   async function A() {
-    const w = n, F = i, l = s, f = a;
-    n = null, i = null, s = null, a = null, l?.disconnect(), f?.disconnect(), F?.getTracks().forEach((r) => r.stop()), g.bands.fill(0), g.level = 0, w && w.state !== "closed" && await w.close().catch(() => {
+    const w = n, T = r, l = s, f = a;
+    n = null, r = null, s = null, a = null, l?.disconnect(), f?.disconnect(), T?.getTracks().forEach((i) => i.stop()), g.bands.fill(0), g.level = 0, w && w.state !== "closed" && await w.close().catch(() => {
     });
   }
-  async function M() {
+  async function R() {
     h += 1, t = { status: e ? "idle" : "unavailable", message: e ? "" : t.message }, await A();
   }
   function _() {
@@ -443,18 +443,18 @@ function be(o) {
     if (t.status === "requesting" && p) return p;
     const w = ++h;
     t = { status: "requesting", message: "Allow microphone access in your browser, or cancel to keep exploring." };
-    const F = (async () => {
+    const T = (async () => {
       try {
         const l = o.createAudioContext();
         n = l;
-        const f = l.resume().then(() => null, (S) => S), r = await o.getUserMedia({ audio: { echoCancellation: !0, noiseSuppression: !0, autoGainControl: !0 }, video: !1 });
+        const f = l.resume().then(() => null, (F) => F), i = await o.getUserMedia({ audio: { echoCancellation: !0, noiseSuppression: !0, autoGainControl: !0 }, video: !1 });
         if (w !== h)
-          return r.getTracks().forEach((S) => S.stop()), !1;
-        i = r;
+          return i.getTracks().forEach((F) => F.stop()), !1;
+        r = i;
         const v = await f;
         if (v) throw v;
-        return w !== h ? !1 : (s = l.createMediaStreamSource(r), a = l.createAnalyser(), a.fftSize = 4096, a.minDecibels = -90, a.maxDecibels = -15, a.smoothingTimeConstant = 0.55, y = new Uint8Array(a.frequencyBinCount), u = new Float32Array(a.fftSize), s.connect(a), r.getAudioTracks().forEach((S) => S.addEventListener("ended", () => {
-          M();
+        return w !== h ? !1 : (s = l.createMediaStreamSource(i), a = l.createAnalyser(), a.fftSize = 4096, a.minDecibels = -90, a.maxDecibels = -15, a.smoothingTimeConstant = 0.55, y = new Uint8Array(a.frequencyBinCount), u = new Float32Array(a.fftSize), s.connect(a), i.getAudioTracks().forEach((F) => F.addEventListener("ended", () => {
+          R();
         }, { once: !0 })), t = { status: "live", message: "Microphone on. Audio is analysed on this device; nothing is saved or uploaded." }, !0);
       } catch (l) {
         if (w !== h || (await A(), w !== h)) return !1;
@@ -462,34 +462,34 @@ function be(o) {
         return t = f === "NotAllowedError" || f === "SecurityError" ? { status: "denied", message: "Microphone permission was not allowed. You can allow it in your browser and try again; the demo still works." } : { status: "error", message: f === "NotFoundError" ? "No microphone was found. Connect one and try again, or use the visual demo." : "The microphone could not be started. Check your device and browser permissions, then try again." }, !1;
       }
     })();
-    return p = F, F.finally(() => {
-      p === F && (p = null);
-    }), F;
+    return p = T, T.finally(() => {
+      p === T && (p = null);
+    }), T;
   }
   function C(w) {
-    return t.status !== "live" || !a || !n ? g : Z(a, n.sampleRate, w, g, b, y, u);
+    return t.status !== "live" || !a || !n ? g : re(a, n.sampleRate, w, g, x, y, u);
   }
-  return { start: _, stop: M, read: C, getState: () => ({ ...t }) };
+  return { start: _, stop: R, read: C, getState: () => ({ ...t }) };
 }
-function Z(o, e, t, n, i, s, a) {
-  o.getByteFrequencyData(s), o.getFloatTimeDomainData(a), xe(s, e, o.fftSize, i);
+function re(o, e, t, n, r, s, a) {
+  o.getByteFrequencyData(s), o.getFloatTimeDomainData(a), Ae(s, e, o.fftSize, r);
   let y = 0;
   for (const p of a) y += p * p;
-  const u = Math.sqrt(y / a.length), b = Math.min(1, Math.max(0, (u - 6e-3) / 0.012)), g = Math.min(0.1, Math.max(0, Number.isFinite(t) ? t : 0));
-  i.forEach((p, A) => {
-    const M = p * b, _ = M > n.bands[A] ? 0.045 : 0.23;
-    n.bands[A] += (M - n.bands[A]) * (1 - Math.exp(-g / _));
+  const u = Math.sqrt(y / a.length), x = Math.min(1, Math.max(0, (u - 6e-3) / 0.012)), g = Math.min(0.1, Math.max(0, Number.isFinite(t) ? t : 0));
+  r.forEach((p, A) => {
+    const R = p * x, _ = R > n.bands[A] ? 0.045 : 0.23;
+    n.bands[A] += (R - n.bands[A]) * (1 - Math.exp(-g / _));
   });
   const h = Math.min(1, Math.max(0, (u - 6e-3) * 9));
   return n.level += (h - n.level) * (1 - Math.exp(-g / (h > n.level ? 0.04 : 0.2))), n;
 }
-function we(o) {
+function Re(o) {
   const e = o.context.createAnalyser();
   e.fftSize = 4096, e.minDecibels = -90, e.maxDecibels = -15, e.smoothingTimeConstant = 0.55, o.connect(e);
-  const t = { bands: new Float32Array(6), level: 0 }, n = new Float32Array(6), i = new Uint8Array(e.frequencyBinCount), s = new Float32Array(e.fftSize);
+  const t = { bands: new Float32Array(6), level: 0 }, n = new Float32Array(6), r = new Uint8Array(e.frequencyBinCount), s = new Float32Array(e.fftSize);
   let a = !0;
   return {
-    read: (y) => a ? Z(e, o.context.sampleRate, y, t, n, i, s) : t,
+    read: (y) => a ? re(e, o.context.sampleRate, y, t, n, r, s) : t,
     disconnect: () => {
       if (a) {
         a = !1;
@@ -505,48 +505,74 @@ function we(o) {
 function D(o, e, t) {
   return Math.min(t, Math.max(e, o));
 }
-function L(o, e, t, n, i = 420, s = 18) {
+function z(o, e, t, n, r = 420, s = 18) {
   const a = D(Number.isFinite(n) ? n : 0, 0, 0.06666666666666667), y = Math.max(1, Math.ceil(a / (1 / 240))), u = a / y;
-  let b = o, g = e;
+  let x = o, g = e;
   for (let h = 0; h < y; h += 1)
-    g += ((t - b) * i - g * s) * u, b += g * u;
-  return [b, g];
+    g += ((t - x) * r - g * s) * u, x += g * u;
+  return [x, g];
 }
-function _e(o, e, t) {
-  const n = (o || "").trim().split(/\s+/)[0] ?? "", i = parseFloat(n);
-  if (!Number.isFinite(i) || i <= 0) return 0;
-  const s = Math.min(e, t), a = n.endsWith("%") ? i / 100 * s : i;
+function Me(o, e, t) {
+  const n = (o || "").trim().split(/\s+/)[0] ?? "", r = parseFloat(n);
+  if (!Number.isFinite(r) || r <= 0) return 0;
+  const s = Math.min(e, t), a = n.endsWith("%") ? r / 100 * s : r;
   return D(a, 0, s / 2);
 }
 function k(o, e, t = -1 / 0, n = 1 / 0) {
-  const i = parseFloat(o);
-  return Number.isFinite(i) ? D(i, t, n) : e;
+  const r = parseFloat(o);
+  return Number.isFinite(r) ? D(r, t, n) : e;
 }
-function Ee(o) {
+function Te(o) {
   const e = /rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:[,\s/]+([\d.]+%?))?\s*\)/.exec(o || "");
   if (!e) return null;
   const t = e[4], n = t === void 0 ? 1 : t.endsWith("%") ? parseFloat(t) / 100 : parseFloat(t);
   return [Number(e[1]) / 255, Number(e[2]) / 255, Number(e[3]) / 255, D(n, 0, 1)];
 }
-function Ae(o) {
+function Fe(o) {
   return /\.(mp4|webm|mov|m4v)(\?|#|$)/i.test(o);
 }
-const Re = [[1, 0.35, 0.12], [1, 0.18, 0.54], [0.42, 0.23, 1], [0, 0.76, 1]], Me = [0.04, 0.03, 0.12], ee = document.createElement("template");
-ee.innerHTML = `<style>
+const Ce = [[1, 0.35, 0.12], [1, 0.18, 0.54], [0.42, 0.23, 1], [0, 0.76, 1]], Pe = [0.04, 0.03, 0.12], ee = `
 :host { display: block; position: relative; isolation: isolate; overflow: hidden; min-height: 120px; color: #fff; background: #0a0818; }
 :host([hidden]) { display: none; }
 canvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; opacity: 0; transition: opacity .5s; }
 :host([data-ready]) canvas { opacity: 1; }
 .fallback { position: absolute; inset: 0; z-index: 0; background: var(--image, linear-gradient(120deg, #ff5a1f, #ff2d8a 35%, #6a3bff 65%, #00c2ff)) center / cover no-repeat; }
 :host([data-renderer='webgl'][data-ready]) .fallback { display: none; }
-.content { position: relative; z-index: 1; height: 100%; }
-</style><div class="fallback" part="fallback"></div><canvas part="canvas" aria-hidden="true"></canvas><div class="content" part="content"><slot></slot></div>`;
-const Te = `
+.content { position: relative; z-index: 1; height: 100%; }`, ie = document.createElement("template");
+ie.innerHTML = '<div class="fallback" part="fallback"></div><canvas part="canvas" aria-hidden="true"></canvas><div class="content" part="content"><slot></slot></div>';
+const te = `
 liquid-glass [glass] { -webkit-tap-highlight-color: transparent; }
 liquid-glass [glass-drag] { touch-action: none; cursor: grab; user-select: none; }
 liquid-glass [glass-drag]:active { cursor: grabbing; }
 liquid-glass:not([data-renderer='webgl']) [glass] { background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.38); box-shadow: inset 0 1px 1px rgba(255,255,255,.6), 0 10px 30px rgba(0,0,0,.18); backdrop-filter: blur(14px) saturate(1.7); -webkit-backdrop-filter: blur(14px) saturate(1.7); }`;
-class te extends HTMLElement {
+function oe(o) {
+  if (!("adoptedStyleSheets" in Document.prototype) || !("replaceSync" in CSSStyleSheet.prototype)) return null;
+  try {
+    const e = new CSSStyleSheet();
+    return e.replaceSync(o), e;
+  } catch {
+    return null;
+  }
+}
+let Y, V;
+function ke(o) {
+  if (Y === void 0 && (Y = oe(ee)), Y) {
+    o.adoptedStyleSheets = [...o.adoptedStyleSheets, Y];
+    return;
+  }
+  const e = document.createElement("style");
+  e.textContent = ee, o.prepend(e);
+}
+function De() {
+  if (V === void 0 && (V = oe(te)), V) {
+    document.adoptedStyleSheets.includes(V) || (document.adoptedStyleSheets = [...document.adoptedStyleSheets, V]);
+    return;
+  }
+  if (document.getElementById("liquid-glass-style")) return;
+  const o = document.createElement("style");
+  o.id = "liquid-glass-style", o.textContent = te, document.head.append(o);
+}
+class se extends HTMLElement {
   constructor() {
     super();
     d(this, "canvas");
@@ -585,10 +611,7 @@ class te extends HTMLElement {
     d(this, "lastAudioStatus", "");
     d(this, "liveSince", 0);
     const t = this.attachShadow({ mode: "open" });
-    if (t.append(ee.content.cloneNode(!0)), this.canvas = t.querySelector("canvas"), this.fallback = t.querySelector(".fallback"), this.colorProbe.hidden = !0, t.append(this.colorProbe), !document.getElementById("liquid-glass-style")) {
-      const n = document.createElement("style");
-      n.id = "liquid-glass-style", n.textContent = Te, document.head.append(n);
-    }
+    ke(t), t.append(ie.content.cloneNode(!0)), this.canvas = t.querySelector("canvas"), this.fallback = t.querySelector(".fallback"), this.colorProbe.hidden = !0, t.append(this.colorProbe), De();
   }
   /** 'aurora' (default), or the URL of an image or video to refract. */
   get backdrop() {
@@ -599,7 +622,7 @@ class te extends HTMLElement {
   }
   /** The glass elements this scene renders (at most 16). */
   get panes() {
-    return Array.from(this.querySelectorAll("[glass]")).slice(0, this.renderer?.maxPanes ?? J);
+    return Array.from(this.querySelectorAll("[glass]")).slice(0, this.renderer?.maxPanes ?? ne);
   }
   /** The microphone's state: idle, requesting, live, denied, unavailable or error. */
   get microphoneState() {
@@ -623,7 +646,7 @@ class te extends HTMLElement {
   /** Let any Web Audio node light the glass (a player, a synth). Returns a function that stops listening. */
   listen(t) {
     this.node?.disconnect();
-    const n = we(t);
+    const n = Re(t);
     return this.node = n, () => {
       n.disconnect(), this.node === n && (this.node = null);
     };
@@ -635,11 +658,11 @@ class te extends HTMLElement {
       return;
     }
     const n = new Float32Array(6);
-    for (let i = 0; i < 6; i += 1) n[i] = D(Number(t.bands[i]) || 0, 0, 1);
+    for (let r = 0; r < 6; r += 1) n[r] = D(Number(t.bands[r]) || 0, 0, 1);
     this.manualAudio = { bands: n, level: D(Number(t.level) || 0, 0, 1) };
   }
   mic() {
-    return this.microphone ?? (this.microphone = be({
+    return this.microphone ?? (this.microphone = Se({
       getUserMedia: navigator.mediaDevices?.getUserMedia ? (t) => navigator.mediaDevices.getUserMedia(t) : void 0,
       createAudioContext: typeof window.AudioContext == "function" ? () => new AudioContext() : void 0
     })), this.microphone;
@@ -652,7 +675,7 @@ class te extends HTMLElement {
     this.events = new AbortController();
     const t = this.events.signal;
     try {
-      this.renderer = ve(this.canvas), this.dataset.renderer = "webgl";
+      this.renderer = _e(this.canvas), this.dataset.renderer = "webgl";
     } catch (n) {
       console.warn("liquid-glass: WebGL is unavailable, using frosted CSS glass.", n), this.dataset.renderer = "css";
     }
@@ -671,28 +694,28 @@ class te extends HTMLElement {
   disconnectedCallback() {
     this.stop(), this.events?.abort(), this.resizeObserver?.disconnect(), this.visibility?.disconnect(), this.mutations?.disconnect(), this.video?.pause(), this.video = null, this.microphone?.stop(), this.node?.disconnect(), this.node = null, this.renderer?.destroy(), this.renderer = null, delete this.dataset.ready;
   }
-  attributeChangedCallback(t, n, i) {
-    n === i || !this.isConnected || ((t === "backdrop" || t === "colors") && this.applyBackdrop(), t === "dim" && this.applyDim());
+  attributeChangedCallback(t, n, r) {
+    n === r || !this.isConnected || ((t === "backdrop" || t === "colors") && this.applyBackdrop(), t === "dim" && this.applyDim());
   }
   // ---- the backdrop
   applyBackdrop() {
     const t = ++this.backdropRequest, n = this.backdrop.trim();
     if (this.video?.pause(), this.video = null, n === "aurora" || !n) {
-      this.renderer?.setAurora(this.auroraColors(), Me), this.renderer?.setSource(null), this.fallback.style.removeProperty("--image"), this.animatedScene = !0, this.sceneDirty = !0, this.dataset.ready = "";
+      this.renderer?.setAurora(this.auroraColors(), Pe), this.renderer?.setSource(null), this.fallback.style.removeProperty("--image"), this.animatedScene = !0, this.sceneDirty = !0, this.dataset.ready = "";
       return;
     }
-    if (this.fallback.style.setProperty("--image", `url("${n.replace(/"/g, "%22")}")`), this.renderer?.setSource("wait"), this.sceneDirty = !0, Ae(n)) {
-      const i = document.createElement("video");
-      Object.assign(i, { muted: !0, loop: !0, playsInline: !0, autoplay: !0, crossOrigin: "anonymous", src: n }), i.setAttribute("muted", ""), this.video = i, this.animatedScene = !0, i.addEventListener("playing", () => {
+    if (this.fallback.style.setProperty("--image", `url("${n.replace(/"/g, "%22")}")`), this.renderer?.setSource("wait"), this.sceneDirty = !0, Fe(n)) {
+      const r = document.createElement("video");
+      Object.assign(r, { muted: !0, loop: !0, playsInline: !0, autoplay: !0, crossOrigin: "anonymous", src: n }), r.setAttribute("muted", ""), this.video = r, this.animatedScene = !0, r.addEventListener("playing", () => {
         t === this.backdropRequest && (this.dataset.ready = "");
-      }, { once: !0 }), i.play().catch(() => {
+      }, { once: !0 }), r.play().catch(() => {
       });
       return;
     }
-    this.animatedScene = !1, pe(n).then((i) => {
-      t === this.backdropRequest && (this.renderer?.setSource(i.source, i.width, i.height), this.sceneDirty = !0, this.dataset.ready = "");
-    }).catch((i) => {
-      t === this.backdropRequest && (console.warn(`liquid-glass: the backdrop "${n}" could not load (images on other sites need CORS headers). Showing the aurora.`, i), this.renderer?.setSource(null), this.animatedScene = !0, this.sceneDirty = !0, this.dataset.ready = "");
+    this.animatedScene = !1, xe(n).then((r) => {
+      t === this.backdropRequest && (this.renderer?.setSource(r.source, r.width, r.height), this.sceneDirty = !0, this.dataset.ready = "");
+    }).catch((r) => {
+      t === this.backdropRequest && (console.warn(`liquid-glass: the backdrop "${n}" could not load (images on other sites need CORS headers). Showing the aurora.`, r), this.renderer?.setSource(null), this.animatedScene = !0, this.sceneDirty = !0, this.dataset.ready = "");
     });
   }
   applyDim() {
@@ -701,27 +724,27 @@ class te extends HTMLElement {
   }
   auroraColors() {
     const t = (this.getAttribute("colors") || "").split(/[\s,]+/).filter(Boolean).map((n) => this.resolveColor(n)).filter((n) => n[3] > 0);
-    return t.length ? t.map(([n, i, s]) => [n, i, s]) : Re;
+    return t.length ? t.map(([n, r, s]) => [n, r, s]) : Ce;
   }
   // ---- reading the panes
   resolveColor(t) {
     const n = this.colorCache.get(t);
     if (n) return n;
     this.colorProbe.style.color = "", this.colorProbe.style.color = t;
-    const i = (this.colorProbe.style.color ? Ee(getComputedStyle(this.colorProbe).color) : null) ?? [0, 0, 0, 0];
-    return this.colorCache.set(t, i), i;
+    const r = (this.colorProbe.style.color ? Te(getComputedStyle(this.colorProbe).color) : null) ?? [0, 0, 0, 0];
+    return this.colorCache.set(t, r), r;
   }
-  readLook(t, n, i) {
-    const s = getComputedStyle(t), a = Math.min(n, i) / 2, y = s.getPropertyValue("--glass-tint").trim(), u = s.getPropertyValue("--glass-lens").trim().split(/[\s,]+/).map(Number), b = Math.min(44, Math.max(a * 0.36, Math.min(a * 0.7, 14))) * k(s.getPropertyValue("--glass-depth"), 1, 0.2, 3);
+  readLook(t, n, r) {
+    const s = getComputedStyle(t), a = Math.min(n, r) / 2, y = s.getPropertyValue("--glass-tint").trim(), u = s.getPropertyValue("--glass-lens").trim().split(/[\s,]+/).map(Number), x = Math.min(44, Math.max(a * 0.36, Math.min(a * 0.7, 14))) * k(s.getPropertyValue("--glass-depth"), 1, 0.2, 3);
     return {
-      radius: _e(s.borderTopLeftRadius, n, i),
+      radius: Me(s.borderTopLeftRadius, n, r),
       frost: k(s.getPropertyValue("--glass-frost"), 0, 0, 1),
       chroma: k(s.getPropertyValue("--glass-chroma"), 8e-3, 0, 0.1),
       pull: k(s.getPropertyValue("--glass-pull"), Math.min(9, a * 0.3), 0, 40),
       tint: y ? this.resolveColor(y) : [1, 1, 1, 0],
-      depth: b,
-      rounding: Math.min(b * 0.73, a * 0.9),
-      dome: b * 0.48 * k(s.getPropertyValue("--glass-dome"), 1, 0, 4),
+      depth: x,
+      rounding: Math.min(x * 0.73, a * 0.9),
+      dome: x * 0.48 * k(s.getPropertyValue("--glass-dome"), 1, 0, 4),
       ior: k(s.getPropertyValue("--glass-ior"), 1.38, 1.05, 2.4),
       lens: u.length === 3 && u.every(Number.isFinite) ? [u[0], u[1], u[2]] : null,
       glow: k(s.getPropertyValue("--glass-glow"), 1, 0, 2),
@@ -742,21 +765,21 @@ class te extends HTMLElement {
     this.movePointer(t);
     const n = t.target?.closest?.("[glass]");
     if (!(!n || !this.contains(n)) && (this.pointer.down = !0, this.pointer.target = n, n.hasAttribute("glass-drag"))) {
-      const i = this.state(n);
-      i.drag = { pointer: t.pointerId, startX: t.clientX, startY: t.clientY, baseX: i.offsetX, baseY: i.offsetY, lastX: t.clientX, lastY: t.clientY, lastT: t.timeStamp, vx: 0, vy: 0 }, n.setPointerCapture?.(t.pointerId);
+      const r = this.state(n);
+      r.drag = { pointer: t.pointerId, startX: t.clientX, startY: t.clientY, baseX: r.offsetX, baseY: r.offsetY, lastX: t.clientX, lastY: t.clientY, lastT: t.timeStamp, vx: 0, vy: 0 }, n.setPointerCapture?.(t.pointerId);
     }
   }
   dragMove(t) {
-    const n = this.pointer.target, i = n ? this.states.get(n)?.drag : null;
-    if (!n || !i || i.pointer !== t.pointerId) return;
-    const s = this.state(n), a = Math.max(1, t.timeStamp - i.lastT) / 1e3;
-    i.vx = i.vx * 0.6 + (t.clientX - i.lastX) / a * 0.4, i.vy = i.vy * 0.6 + (t.clientY - i.lastY) / a * 0.4, i.lastX = t.clientX, i.lastY = t.clientY, i.lastT = t.timeStamp, s.offsetX = i.baseX + t.clientX - i.startX, s.offsetY = i.baseY + t.clientY - i.startY, n.style.translate = `${s.offsetX}px ${s.offsetY}px`;
+    const n = this.pointer.target, r = n ? this.states.get(n)?.drag : null;
+    if (!n || !r || r.pointer !== t.pointerId) return;
+    const s = this.state(n), a = Math.max(1, t.timeStamp - r.lastT) / 1e3;
+    r.vx = r.vx * 0.6 + (t.clientX - r.lastX) / a * 0.4, r.vy = r.vy * 0.6 + (t.clientY - r.lastY) / a * 0.4, r.lastX = t.clientX, r.lastY = t.clientY, r.lastT = t.timeStamp, s.offsetX = r.baseX + t.clientX - r.startX, s.offsetY = r.baseY + t.clientY - r.startY, n.style.translate = `${s.offsetX}px ${s.offsetY}px`;
   }
   release(t) {
     const n = this.pointer.target;
     if (n) {
-      const i = this.states.get(n);
-      i?.drag && i.drag.pointer === t.pointerId && (i.drag = null);
+      const r = this.states.get(n);
+      r?.drag && r.drag.pointer === t.pointerId && (r.drag = null);
     }
     this.pointer.down = !1, this.pointer.target = null;
   }
@@ -781,50 +804,50 @@ class te extends HTMLElement {
     this.frameId = requestAnimationFrame((l) => this.frame(l));
     const n = this.renderer;
     if (!n) return;
-    const i = D((t - this.lastFrame) / 1e3, 0, 1 / 15);
+    const r = D((t - this.lastFrame) / 1e3, 0, 1 / 15);
     this.lastFrame = t, this.frameCount += 1;
     const s = this.motionQuery.matches || this.hasAttribute("reduce-motion"), a = this.video;
-    a && a.readyState >= 2 && (n.setSource(a, a.videoWidth, a.videoHeight), this.sceneDirty = !0), this.animatedScene && !s && (this.time += i, this.sceneDirty = !0);
+    a && a.readyState >= 2 && (n.setSource(a, a.videoWidth, a.videoHeight), this.sceneDirty = !0), this.animatedScene && !s && (this.time += r, this.sceneDirty = !0);
     const y = this.sceneDirty;
     this.sceneDirty && (n.drawScene(this.time), this.sceneDirty = !1);
-    const u = this.light, b = this.pointer.inside ? this.pointer.x - 100 : this.width * 0.18, g = this.pointer.inside ? this.pointer.y - 160 : -this.height * 0.25;
-    [u.x, u.vx] = L(u.x, u.vx, b, i, 330, 24), [u.y, u.vy] = L(u.y, u.vy, g, i, 330, 24);
+    const u = this.light, x = this.pointer.inside ? this.pointer.x - 100 : this.width * 0.18, g = this.pointer.inside ? this.pointer.y - 160 : -this.height * 0.25;
+    [u.x, u.vx] = z(u.x, u.vx, x, r, 330, 24), [u.y, u.vy] = z(u.y, u.vy, g, r, 330, 24);
     const h = this.bulge;
-    this.pointer.inside && h.x < -5e3 && Object.assign(h, { x: this.pointer.x, y: this.pointer.y, vx: 0, vy: 0 }), !this.pointer.inside || s ? Object.assign(h, { x: -1e4, y: -1e4, vx: 0, vy: 0 }) : ([h.x, h.vx] = L(h.x, h.vx, this.pointer.x, i, 140, 9), [h.y, h.vy] = L(h.y, h.vy, this.pointer.y, i, 140, 9)), this.microphone && this.syncAudio();
+    this.pointer.inside && h.x < -5e3 && Object.assign(h, { x: this.pointer.x, y: this.pointer.y, vx: 0, vy: 0 }), !this.pointer.inside || s ? Object.assign(h, { x: -1e4, y: -1e4, vx: 0, vy: 0 }) : ([h.x, h.vx] = z(h.x, h.vx, this.pointer.x, r, 140, 9), [h.y, h.vy] = z(h.y, h.vy, this.pointer.y, r, 140, 9)), this.microphone && this.syncAudio();
     let p = this.silent;
-    this.microphone?.getState().status === "live" ? p = this.microphone.read(i) : this.node ? p = this.node.read(i) : this.manualAudio ? p = this.manualAudio : this.hasAttribute("inner-light") && (this.demo.bands.forEach((l, f) => {
+    this.microphone?.getState().status === "live" ? p = this.microphone.read(r) : this.node ? p = this.node.read(r) : this.manualAudio ? p = this.manualAudio : this.hasAttribute("inner-light") && (this.demo.bands.forEach((l, f) => {
       this.demo.bands[f] = 0.26 + Math.sin(this.time * (1.4 + f * 0.28) + f) * 0.17;
-    }), this.demo.level = Math.max(...this.demo.bands) * 0.6, p = this.demo, !this.animatedScene && !s && (this.time += i));
+    }), this.demo.level = Math.max(...this.demo.bands) * 0.6, p = this.demo, !this.animatedScene && !s && (this.time += r));
     const A = p === this.demo ? 0.85 : p === this.silent ? 0 : D(p.level * 1.5, 0, 1);
-    this.level = s ? A : this.level + (A - this.level) * Math.min(i * 7, 1);
-    const M = p !== this.silent || this.level > 2e-3;
+    this.level = s ? A : this.level + (A - this.level) * Math.min(r * 7, 1);
+    const R = p !== this.silent || this.level > 2e-3;
     (this.stylesDirty || this.frameCount % 30 === 0) && this.panes.forEach((l) => {
       this.state(l).look = null;
     }), this.stylesDirty = !1;
     const _ = this.getBoundingClientRect(), C = [];
-    let w = Math.abs(u.vx) + Math.abs(u.vy) + Math.abs(h.vx) + Math.abs(h.vy) > 0.5 || M;
+    let w = Math.abs(u.vx) + Math.abs(u.vy) + Math.abs(h.vx) + Math.abs(h.vy) > 0.5 || R;
     for (const l of this.panes) {
       const f = l.getBoundingClientRect();
       if (f.width < 1 || f.height < 1 || f.right < _.left || f.left > _.right || f.bottom < _.top || f.top > _.bottom) continue;
-      const r = this.state(l);
-      r.look ?? (r.look = this.readLook(l, f.width, f.height));
-      const v = r.look, S = this.pointer.down && this.pointer.target === l, U = this.pointer.inside && this.pointer.x >= f.left - _.left && this.pointer.x <= f.right - _.left && this.pointer.y >= f.top - _.top && this.pointer.y <= f.bottom - _.top, P = r.drag, B = S ? v.press : U ? 1 + (v.press - 1) * 0.3 : 1, q = P ? D(Math.abs(P.vx) / 2600, 0, 0.22) : 0, I = P ? D(Math.abs(P.vy) / 2600, 0, 0.22) : 0;
-      s ? Object.assign(r, { scale: B, scaleVelocity: 0, stretchX: 1, stretchY: 1, stretchXVelocity: 0, stretchYVelocity: 0, glow: S ? 1 : 0, glowVelocity: 0 }) : ([r.scale, r.scaleVelocity] = L(r.scale, r.scaleVelocity, B, i, 520, 14), [r.stretchX, r.stretchXVelocity] = L(r.stretchX, r.stretchXVelocity, 1 + q - I * 0.5, i, 300, 12), [r.stretchY, r.stretchYVelocity] = L(r.stretchY, r.stretchYVelocity, 1 + I - q * 0.5, i, 300, 12), [r.glow, r.glowVelocity] = L(r.glow, r.glowVelocity, S ? 1 : U ? 0.35 : 0, i, 260, 22)), P && (P.vx *= 0.9, P.vy *= 0.9), w || (w = Math.abs(r.scaleVelocity) + Math.abs(r.stretchXVelocity) + Math.abs(r.stretchYVelocity) + Math.abs(r.glowVelocity) > 2e-3);
-      const z = v.lens ? [v.lens[0], v.lens[1], v.lens[2], 1] : [r.lens[0], r.lens[1], r.lens[2], 0];
-      r.lens[3] === 0 && v.lens && !r.lensVelocity.some(Boolean) && (r.lens = [...z]);
+      const i = this.state(l);
+      i.look ?? (i.look = this.readLook(l, f.width, f.height));
+      const v = i.look, F = this.pointer.down && this.pointer.target === l, U = this.pointer.inside && this.pointer.x >= f.left - _.left && this.pointer.x <= f.right - _.left && this.pointer.y >= f.top - _.top && this.pointer.y <= f.bottom - _.top, P = i.drag, B = F ? v.press : U ? 1 + (v.press - 1) * 0.3 : 1, q = P ? D(Math.abs(P.vx) / 2600, 0, 0.22) : 0, I = P ? D(Math.abs(P.vy) / 2600, 0, 0.22) : 0;
+      s ? Object.assign(i, { scale: B, scaleVelocity: 0, stretchX: 1, stretchY: 1, stretchXVelocity: 0, stretchYVelocity: 0, glow: F ? 1 : 0, glowVelocity: 0 }) : ([i.scale, i.scaleVelocity] = z(i.scale, i.scaleVelocity, B, r, 520, 14), [i.stretchX, i.stretchXVelocity] = z(i.stretchX, i.stretchXVelocity, 1 + q - I * 0.5, r, 300, 12), [i.stretchY, i.stretchYVelocity] = z(i.stretchY, i.stretchYVelocity, 1 + I - q * 0.5, r, 300, 12), [i.glow, i.glowVelocity] = z(i.glow, i.glowVelocity, F ? 1 : U ? 0.35 : 0, r, 260, 22)), P && (P.vx *= 0.9, P.vy *= 0.9), w || (w = Math.abs(i.scaleVelocity) + Math.abs(i.stretchXVelocity) + Math.abs(i.stretchYVelocity) + Math.abs(i.glowVelocity) > 2e-3);
+      const L = v.lens ? [v.lens[0], v.lens[1], v.lens[2], 1] : [i.lens[0], i.lens[1], i.lens[2], 0];
+      i.lens[3] === 0 && v.lens && !i.lensVelocity.some(Boolean) && (i.lens = [...L]);
       for (let E = 0; E < 4; E += 1) {
         if (s) {
-          r.lens[E] = z[E], r.lensVelocity[E] = 0;
+          i.lens[E] = L[E], i.lensVelocity[E] = 0;
           continue;
         }
-        [r.lens[E], r.lensVelocity[E]] = L(r.lens[E], r.lensVelocity[E], z[E], i, 330, 24);
+        [i.lens[E], i.lensVelocity[E]] = z(i.lens[E], i.lensVelocity[E], L[E], r, 330, 24);
       }
-      w || (w = r.lensVelocity.some((E) => Math.abs(E) > 0.01)), C.push({
+      w || (w = i.lensVelocity.some((E) => Math.abs(E) > 0.01)), C.push({
         x: f.left - _.left + f.width / 2,
         y: f.top - _.top + f.height / 2,
-        halfWidth: f.width / 2 * r.scale * r.stretchX,
-        halfHeight: f.height / 2 * r.scale * r.stretchY,
-        radius: v.radius * r.scale,
+        halfWidth: f.width / 2 * i.scale * i.stretchX,
+        halfHeight: f.height / 2 * i.scale * i.stretchY,
+        radius: v.radius * i.scale,
         frost: v.frost,
         chroma: v.chroma,
         pull: v.pull,
@@ -833,18 +856,18 @@ class te extends HTMLElement {
         rounding: v.rounding,
         dome: v.dome,
         ior: v.ior,
-        lens: [r.lens[0] * r.scale, r.lens[1] * r.scale, r.lens[2] * r.scale, r.lens[3]],
+        lens: [i.lens[0] * i.scale, i.lens[1] * i.scale, i.lens[2] * i.scale, i.lens[3]],
         glow: v.glow,
         shadow: v.shadow,
-        press: r.glow
+        press: i.glow
       });
     }
-    const F = C.map((l) => `${l.x.toFixed(1)},${l.y.toFixed(1)},${l.halfWidth.toFixed(1)},${l.halfHeight.toFixed(1)},${l.radius},${l.frost},${l.depth},${l.dome},${l.tint.join(",")}`).join("|");
-    !y && !w && F === this.lastSignature || (this.lastSignature = F, n.drawGlass(C, { x: u.x, y: u.y }, { x: h.x, y: h.y }, p === this.silent ? { bands: this.silent.bands, level: this.level } : { bands: p.bands, level: this.level }));
+    const T = C.map((l) => `${l.x.toFixed(1)},${l.y.toFixed(1)},${l.halfWidth.toFixed(1)},${l.halfHeight.toFixed(1)},${l.radius},${l.frost},${l.depth},${l.dome},${l.tint.join(",")}`).join("|");
+    !y && !w && T === this.lastSignature || (this.lastSignature = T, n.drawGlass(C, { x: u.x, y: u.y }, { x: h.x, y: h.y }, p === this.silent ? { bands: this.silent.bands, level: this.level } : { bands: p.bands, level: this.level }));
   }
 }
-d(te, "observedAttributes", ["backdrop", "colors", "dim", "inner-light"]);
-typeof customElements < "u" && !customElements.get("liquid-glass") && customElements.define("liquid-glass", te);
+d(se, "observedAttributes", ["backdrop", "colors", "dim", "inner-light"]);
+typeof customElements < "u" && !customElements.get("liquid-glass") && customElements.define("liquid-glass", se);
 export {
-  te as LiquidGlassElement
+  se as LiquidGlassElement
 };
